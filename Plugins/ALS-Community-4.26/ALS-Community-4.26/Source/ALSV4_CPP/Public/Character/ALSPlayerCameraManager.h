@@ -111,6 +111,14 @@ public:
 	UPROPERTY()
 	USkeletalMeshComponent* LockedTargetMesh = nullptr;
 
+	//Camera Aspect Ratio
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ALS|Camera|Filmback")
+	float CameraAspectRatio = 1.777f;
+
+	/** If true, PlayerCameraManager will force the POV to use CameraAspectRatio. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ALS|Camera|Filmback")
+	bool bOverrideCameraAspectRatio = false;
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ALS|Camera")
 	FVector RootLocation;

@@ -195,7 +195,14 @@ void AALSPlayerCameraManager::UpdateViewTargetInternal(FTViewTarget& OutVT, floa
 			{
 				OutVT.POV.Location = OutLocation;
 				OutVT.POV.Rotation = OutRotation;
-				OutVT.POV.FOV = OutFOV;
+				OutVT.POV.FOV      = OutFOV;
+
+				// 🔻 NEW: Aspect / filmback control
+				if (bOverrideCameraAspectRatio && CameraAspectRatio > 0.f)
+				{
+					OutVT.POV.AspectRatio = CameraAspectRatio;
+					OutVT.POV.bConstrainAspectRatio = true;
+				}
 			}
 			else
 			{

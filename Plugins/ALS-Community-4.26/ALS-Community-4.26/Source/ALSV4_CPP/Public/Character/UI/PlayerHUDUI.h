@@ -11,6 +11,8 @@
 #include "Components/Border.h"
 #include "PaperSprite.h"
 #include "Character/UI/DragItemIconWidget.h"
+#include "Components/CanvasPanel.h"
+#include "Components/CanvasPanelSlot.h"
 #include "PlayerHUDUI.generated.h"
 
 
@@ -78,6 +80,15 @@ public:
 	void HideDragIcon();
 
 protected:
+
+	UPROPERTY(meta = (BindWidget))
+	UCanvasPanel* SafeArea_16_9;
+
+	// Helper to recompute the safe area rectangle
+	void UpdateSafeArea();
+
+	// Cache last viewport size so we only update when needed
+	FIntPoint CachedViewportSize = FIntPoint::ZeroValue;
 
 	/** This will be bound in the UMG editor using the same name */
 	UPROPERTY(meta = (BindWidget))

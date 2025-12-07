@@ -3,6 +3,8 @@
 
 #include "Character/UI/PlayerHUDUI.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
+#include "Components/CanvasPanelSlot.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
 #include "Slate/WidgetTransform.h"
 
 void UPlayerHUDUI::NativeConstruct()
@@ -40,7 +42,84 @@ void UPlayerHUDUI::NativeConstruct()
 			UE_LOG(LogTemp, Warning, TEXT("Drag icon widget created and added to viewport."));
 		}
 	}
+
+	UpdateSafeArea();
 }
+
+void UPlayerHUDUI::UpdateSafeArea()
+{
+	if (!SafeArea_16_9)
+	{
+		return;
+	}
+
+	APlayerController* PC = GetOwningPlayer();
+	if (!PC)
+	{
+		return;
+	}
+
+	int32 ViewX = 0, ViewY = 0;
+	PC->GetViewportSize(ViewX, ViewY);
+	if (ViewX <= 0 || ViewY <= 0)
+	{
+		return;
+	}
+
+	CachedViewportSize = FIntPoint(ViewX, ViewY);
+
+	// === 1) 16:9 camera rect in *pixels* inside the viewport ===
+	const float DesiredAspect = 16.0f / 9.0f;
+	const float ViewAspect    = static_cast<float>(ViewX) / static_cast<float>(ViewY);
+
+	float WorldWidthPx  = 0.f;
+	float WorldHeightPx = 0.f;
+	float WorldXPx      = 0.f;
+	float WorldYPx      = 0.f;
+
+	if (ViewAspect > DesiredAspect)
+	{
+		// Wider than 16:9 -> pillarbox (black bars left/right)
+		WorldHeightPx = static_cast<float>(ViewY);
+		WorldWidthPx  = WorldHeightPx * DesiredAspect;
+		WorldXPx      = 0.5f * (static_cast<float>(ViewX) - WorldWidthPx);
+		WorldYPx      = 0.f;
+	}
+	else
+	{
+		// Taller than 16:9 -> letterbox (bars top/bottom)
+		WorldWidthPx  = static_cast<float>(ViewX);
+		WorldHeightPx = WorldWidthPx / DesiredAspect;
+		WorldXPx      = 0.f;
+		WorldYPx      = 0.5f * (static_cast<float>(ViewY) - WorldHeightPx);
+	}
+
+	// === 2) Convert pixel rect -> UMG coordinates (DPI scale) ===
+	float DPIScale = UWidgetLayoutLibrary::GetViewportScale(this);
+	if (DPIScale <= 0.f)
+	{
+		DPIScale = 1.f;
+	}
+
+	const float WorldWidthUMG  = WorldWidthPx  / DPIScale;
+	const float WorldHeightUMG = WorldHeightPx / DPIScale;
+	const float WorldXUMG      = WorldXPx      / DPIScale;
+	const float WorldYUMG      = WorldYPx      / DPIScale;
+
+	// === 3) Apply to SafeArea_16_9 slot (no extra RenderScale) ===
+	if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(SafeArea_16_9->Slot))
+	{
+		CanvasSlot->SetAnchors(FAnchors(0.f, 0.f, 0.f, 0.f));
+		CanvasSlot->SetAlignment(FVector2D(0.f, 0.f));
+		CanvasSlot->SetPosition(FVector2D(WorldXUMG, WorldYUMG));
+		CanvasSlot->SetSize(FVector2D(WorldWidthUMG, WorldHeightUMG));
+	}
+
+	// Make sure we are not additionally scaling it
+	SafeArea_16_9->SetRenderTransformPivot(FVector2D(0.f, 0.f));
+	SafeArea_16_9->SetRenderScale(FVector2D(1.f, 1.f));
+}
+
 
 
 void UPlayerHUDUI::UpdateWeaponIcon(UTexture2D* NewIcon)
@@ -135,7 +214,7 @@ void UPlayerHUDUI::SetStats(float CurrentHealth, float MaxHealth, float CurrentF
 		}
 		else
 		{
-			// HP increased – instantly sync back bar
+			// HP increased ï¿½ instantly sync back bar
 			HPBar_Back->SetPercent(HealthPercent);
 		}
 	}
@@ -320,6 +399,18 @@ void UPlayerHUDUI::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 			DragIconWidget->SetPositionInViewport(MousePosition, false);
 		}
 	}
+
+	APlayerController* PC = GetOwningPlayer();
+	if (PC)
+	{
+		int32 ViewX = 0, ViewY = 0;
+		PC->GetViewportSize(ViewX, ViewY);
+
+		if (CachedViewportSize != FIntPoint(ViewX, ViewY))
+		{
+			UpdateSafeArea();
+		}
+	}
 }
 
 void UPlayerHUDUI::ShowDragIcon(UTexture2D* Icon)
@@ -353,7 +444,7 @@ FReply UPlayerHUDUI::NativeOnMouseMove(const FGeometry& InGeometry, const FPoint
 			FGeometry SlotGeo = Slott->GetCachedGeometry();
 			if (SlotGeo.IsUnderLocation(InMouseEvent.GetScreenSpacePosition()))
 			{
-				// Remap index: weapon slots (0–3) -> 100–103, inventory slots (4–13) -> 0–9
+				// Remap index: weapon slots (0ï¿½3) -> 100ï¿½103, inventory slots (4ï¿½13) -> 0ï¿½9
 				NewHoveredIndex = (i <= 3) ? (100 + i) : (i - 4);
 				break;
 			}
