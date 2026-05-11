@@ -1,47 +1,6 @@
-##############################
-# Unreal Engine Git Ignore
-##############################
-
-# UE build and cache folders
 Binaries/
-Build/
-Intermediate/
 DerivedDataCache/
+Intermediate/
 Saved/
-
-# Plugin generated files
-Plugins/*/Binaries/
-Plugins/*/Intermediate/
-
-# Autosaves and backups
-**/Autosaves/
-**/Backup/
-
-# Map build data
-*_BuiltData.uasset
-
-# Source Art
-SourceArt/**/*.png
-SourceArt/**/*.tga
-
-##############################
-# Visual Studio / IDE
-##############################
 .vs/
 .vscode/
-*.sln
-*.suo
-*.opensdf
-*.sdf
-*.VC.db
-*.VC.opendb
-
-# OS / misc
-*.log
-*.tmp
-
-##############################
-# Git LFS files (binary assets)
-##############################
-*.uasset
-*.umap
