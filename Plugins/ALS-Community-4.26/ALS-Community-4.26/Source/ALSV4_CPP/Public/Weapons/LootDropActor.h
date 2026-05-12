@@ -14,6 +14,7 @@ class USphereComponent;
 class UWidgetComponent;
 class UInteractWidget;
 class UTexture2D;
+class UPaperSprite;
 
 UCLASS()
 class ALSV4_CPP_API ALootDropActor : public AActor
@@ -71,6 +72,10 @@ public:
 	/** Icon to display on the button (e.g., gamepad icon) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
 	UTexture2D* ActionIcon;
+
+	/** Sprite to display on the button when using a sprite sheet */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+	UPaperSprite* ActionSprite;
 
 	UFUNCTION(BlueprintCallable)
 	void GiveLootToPlayer(class AALSBaseCharacter* Player);

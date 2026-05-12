@@ -7,6 +7,31 @@
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Slate/WidgetTransform.h"
 
+namespace
+{
+	void SetImageFromSprite(UImage* Image, UPaperSprite* Sprite)
+	{
+		if (!Image)
+		{
+			return;
+		}
+
+		if (Sprite)
+		{
+			FSlateBrush Brush;
+			Brush.SetResourceObject(Sprite);
+			Brush.ImageSize = FVector2D(64.f, 64.f);
+			Image->SetBrush(Brush);
+			Image->SetVisibility(ESlateVisibility::Visible);
+		}
+		else
+		{
+			Image->SetBrushFromTexture(nullptr);
+			Image->SetVisibility(ESlateVisibility::Hidden);
+		}
+	}
+}
+
 void UPlayerHUDUI::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -138,6 +163,11 @@ void UPlayerHUDUI::UpdateWeaponIcon(UTexture2D* NewIcon)
 	}
 }
 
+void UPlayerHUDUI::UpdateWeaponIconSprite(UPaperSprite* NewIcon)
+{
+	SetImageFromSprite(WeaponSlotIcon, NewIcon);
+}
+
 void UPlayerHUDUI::UpdateAshOfWarIcon(UTexture2D* NewIcon)
 {
 	if (!AshOfWarSlotIcon) return;
@@ -154,6 +184,11 @@ void UPlayerHUDUI::UpdateAshOfWarIcon(UTexture2D* NewIcon)
 	}
 }
 
+void UPlayerHUDUI::UpdateAshOfWarIconSprite(UPaperSprite* NewIcon)
+{
+	SetImageFromSprite(AshOfWarSlotIcon, NewIcon);
+}
+
 void UPlayerHUDUI::UpdatePotionIcon(UTexture2D* NewIcon)
 {
 	if (PotionsSlotIcon)
@@ -161,6 +196,11 @@ void UPlayerHUDUI::UpdatePotionIcon(UTexture2D* NewIcon)
 		PotionsSlotIcon->SetBrushFromTexture(NewIcon);
 		PotionsSlotIcon->SetVisibility(NewIcon ? ESlateVisibility::Visible : ESlateVisibility::Hidden);
 	}
+}
+
+void UPlayerHUDUI::UpdatePotionIconSprite(UPaperSprite* NewIcon)
+{
+	SetImageFromSprite(PotionsSlotIcon, NewIcon);
 }
 
 void UPlayerHUDUI::UpdatePotionCount(int32 NewCount)
@@ -284,6 +324,32 @@ void UPlayerHUDUI::UpdateInventorySlot(int32 SlotIndex, UTexture2D* Icon)
 		SlotImage->SetBrushFromTexture(Icon);
 		SlotImage->SetVisibility(ESlateVisibility::Visible);
 	}
+}
+
+void UPlayerHUDUI::UpdateInventorySlotSprite(int32 SlotIndex, UPaperSprite* Icon)
+{
+	UImage* SlotImage = nullptr;
+
+	switch (SlotIndex)
+	{
+	case 0: SlotImage = InventorySlotImage_0; break;
+	case 1: SlotImage = InventorySlotImage_1; break;
+	case 2: SlotImage = InventorySlotImage_2; break;
+	case 3: SlotImage = InventorySlotImage_3; break;
+	case 4: SlotImage = InventorySlotImage_4; break;
+	case 5: SlotImage = InventorySlotImage_5; break;
+	case 6: SlotImage = InventorySlotImage_6; break;
+	case 7: SlotImage = InventorySlotImage_7; break;
+	case 8: SlotImage = InventorySlotImage_8; break;
+	case 9: SlotImage = InventorySlotImage_9; break;
+	case 100: SlotImage = WeaponSlotImage_0; break;
+	case 101: SlotImage = WeaponSlotImage_1; break;
+	case 102: SlotImage = WeaponSlotImage_2; break;
+	case 103: SlotImage = WeaponSlotImage_3; break;
+	default: return;
+	}
+
+	SetImageFromSprite(SlotImage, Icon);
 }
 
 void UPlayerHUDUI::HighlightSlot(int32 SlotIndex)
@@ -418,6 +484,14 @@ void UPlayerHUDUI::ShowDragIcon(UTexture2D* Icon)
 	if (DragIconWidget)
 	{
 		DragIconWidget->SetIcon(Icon);
+	}
+}
+
+void UPlayerHUDUI::ShowDragIconSprite(UPaperSprite* Icon)
+{
+	if (DragIconWidget)
+	{
+		DragIconWidget->SetIconSprite(Icon);
 	}
 }
 

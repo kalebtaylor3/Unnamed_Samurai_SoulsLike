@@ -7,6 +7,8 @@
 #include <Components/Image.h>
 #include "DragItemIconWidget.generated.h"
 
+class UPaperSprite;
+
 /**
  * 
  */
@@ -18,6 +20,7 @@ class ALSV4_CPP_API UDragItemIconWidget : public UUserWidget
 
 public:
 	void SetIcon(UTexture2D* NewIcon);
+	void SetIconSprite(UPaperSprite* NewIcon);
 	
 
 	UPROPERTY(meta = (BindWidget))

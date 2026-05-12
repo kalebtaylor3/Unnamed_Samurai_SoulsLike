@@ -1661,7 +1661,7 @@ void AALSBaseCharacter::RollAction_Implementation()
 		LaunchCharacter(RollDirection * 1100, true, true); // tweak strength
 
 		// Step 4: Play the roll animation
-		Replicated_PlayMontage(GetRollAnimation(), 1.0f);
+		Replicated_PlayMontage(GetRollAnimation(), 1.3f);
 	}
 	else
 	{

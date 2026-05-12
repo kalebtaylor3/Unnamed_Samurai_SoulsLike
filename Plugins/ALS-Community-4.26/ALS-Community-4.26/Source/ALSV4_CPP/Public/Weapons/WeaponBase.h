@@ -7,6 +7,7 @@
 #include <Library/ALSCharacterEnumLibrary.h>
 #include "Weapons/HeldWeaponBase.h"
 #include "Weapons/AshOfWarBase.h"
+#include "PaperSprite.h"
 #include "WeaponBase.generated.h"
 
 UCLASS(Blueprintable, BlueprintType)
@@ -25,11 +26,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
 	UTexture2D* WeaponIcon;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
+	UPaperSprite* WeaponIconSprite;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AshOfWar")
 	TSubclassOf<UAshOfWarBase> AshOfWarClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
 	UTexture2D* AshOfWarIcon;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
+	UPaperSprite* AshOfWarIconSprite;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	float LightAttackStaminaAmount = 20;

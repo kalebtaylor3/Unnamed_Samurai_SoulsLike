@@ -76,8 +76,23 @@ void UInventoryComponent::EquipWeaponByIndex(int32 Index)
 			if (auto* CombatComp = OwnerChar->FindComponentByClass<UCombatComponent>())
 			{
 				CombatComp->CurrentWeapon = NewWeapon;
-				OwnerChar->PlayerHUDWidget->UpdateWeaponIcon(NewWeapon->WeaponIcon);
-				OwnerChar->PlayerHUDWidget->UpdateAshOfWarIcon(NewWeapon->AshOfWarIcon);
+				if (NewWeapon->WeaponIconSprite)
+				{
+					OwnerChar->PlayerHUDWidget->UpdateWeaponIconSprite(NewWeapon->WeaponIconSprite);
+				}
+				else
+				{
+					OwnerChar->PlayerHUDWidget->UpdateWeaponIcon(NewWeapon->WeaponIcon);
+				}
+
+				if (NewWeapon->AshOfWarIconSprite)
+				{
+					OwnerChar->PlayerHUDWidget->UpdateAshOfWarIconSprite(NewWeapon->AshOfWarIconSprite);
+				}
+				else
+				{
+					OwnerChar->PlayerHUDWidget->UpdateAshOfWarIcon(NewWeapon->AshOfWarIcon);
+				}
 				OwnerChar->SetOverlayState(NewWeapon->OverlayType);
 				SaveInventory();
 			}
@@ -200,11 +215,25 @@ void UInventoryComponent::UpdatePotionHUD()
 		{
 			if (ActivePotion == EPotionType::HP)
 			{
-				OwnerChar->PlayerHUDWidget->UpdatePotionIcon(HPPotionIcon);
+				if (HPPotionIconSprite)
+				{
+					OwnerChar->PlayerHUDWidget->UpdatePotionIconSprite(HPPotionIconSprite);
+				}
+				else
+				{
+					OwnerChar->PlayerHUDWidget->UpdatePotionIcon(HPPotionIcon);
+				}
 			}
 			else
 			{
-				OwnerChar->PlayerHUDWidget->UpdatePotionIcon(FPPotionIcon);
+				if (FPPotionIconSprite)
+				{
+					OwnerChar->PlayerHUDWidget->UpdatePotionIconSprite(FPPotionIconSprite);
+				}
+				else
+				{
+					OwnerChar->PlayerHUDWidget->UpdatePotionIcon(FPPotionIcon);
+				}
 			}
 
 			OwnerChar->PlayerHUDWidget->UpdatePotionCount(
@@ -223,32 +252,50 @@ void UInventoryComponent::UpdateInventoryUI()
 		for (int32 i = 0; i < 4; ++i)
 		{
 			UTexture2D* EquippedIcon = EmptySlotIcon;
+			UPaperSprite* EquippedIconSprite = EmptySlotIconSprite;
 
 			if (EquippedWeapons.IsValidIndex(i) && EquippedWeapons[i])
 			{
 				if (UWeaponBase* DefaultWeapon = EquippedWeapons[i]->GetDefaultObject<UWeaponBase>())
 				{
 					EquippedIcon = DefaultWeapon->WeaponIcon;
+					EquippedIconSprite = DefaultWeapon->WeaponIconSprite;
 				}
 			}
 
-			OwnerChar->PlayerHUDWidget->UpdateInventorySlot(100 + i, EquippedIcon);
+			if (EquippedIconSprite)
+			{
+				OwnerChar->PlayerHUDWidget->UpdateInventorySlotSprite(100 + i, EquippedIconSprite);
+			}
+			else
+			{
+				OwnerChar->PlayerHUDWidget->UpdateInventorySlot(100 + i, EquippedIcon);
+			}
 		}
 
 		// ----- Backpack -----
 		for (int32 i = 0; i < 10; ++i)
 		{
 			UTexture2D* IconToUse = EmptySlotIcon;
+			UPaperSprite* IconSpriteToUse = EmptySlotIconSprite;
 
 			if (BackpackWeapons.IsValidIndex(i) && BackpackWeapons[i])
 			{
 				if (UWeaponBase* DefaultWeapon = BackpackWeapons[i]->GetDefaultObject<UWeaponBase>())
 				{
 					IconToUse = DefaultWeapon->WeaponIcon;
+					IconSpriteToUse = DefaultWeapon->WeaponIconSprite;
 				}
 			}
 
-			OwnerChar->PlayerHUDWidget->UpdateInventorySlot(i, IconToUse);
+			if (IconSpriteToUse)
+			{
+				OwnerChar->PlayerHUDWidget->UpdateInventorySlotSprite(i, IconSpriteToUse);
+			}
+			else
+			{
+				OwnerChar->PlayerHUDWidget->UpdateInventorySlot(i, IconToUse);
+			}
 		}
 	}
 }
@@ -266,9 +313,25 @@ void UInventoryComponent::SelectSlot(int32 Index)
 		bIsSwapping = true;
 		OwnerChar->PlayerHUDWidget->HighlightSlot(Index);
 
-		UTexture2D* Icon = GetIconAtIndex(Index);
-		OwnerChar->PlayerHUDWidget->ShowDragIcon(Icon);
-		OwnerChar->PlayerHUDWidget->UpdateInventorySlot(Index, EmptySlotIcon);
+		UPaperSprite* IconSprite = GetIconSpriteAtIndex(Index);
+		if (IconSprite)
+		{
+			OwnerChar->PlayerHUDWidget->ShowDragIconSprite(IconSprite);
+		}
+		else
+		{
+			UTexture2D* Icon = GetIconAtIndex(Index);
+			OwnerChar->PlayerHUDWidget->ShowDragIcon(Icon);
+		}
+
+		if (EmptySlotIconSprite)
+		{
+			OwnerChar->PlayerHUDWidget->UpdateInventorySlotSprite(Index, EmptySlotIconSprite);
+		}
+		else
+		{
+			OwnerChar->PlayerHUDWidget->UpdateInventorySlot(Index, EmptySlotIcon);
+		}
 
 		return;
 	}
@@ -321,6 +384,30 @@ UTexture2D* UInventoryComponent::GetIconAtIndex(int32 Index) const
 			if (UWeaponBase* Weapon = EquippedWeapons[EquippedSlot]->GetDefaultObject<UWeaponBase>())
 			{
 				return Weapon->WeaponIcon;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+UPaperSprite* UInventoryComponent::GetIconSpriteAtIndex(int32 Index) const
+{
+	if (Index >= 0 && Index < BackpackWeapons.Num() && BackpackWeapons[Index])
+	{
+		if (UWeaponBase* Weapon = BackpackWeapons[Index]->GetDefaultObject<UWeaponBase>())
+		{
+			return Weapon->WeaponIconSprite;
+		}
+	}
+	else if (Index >= 100 && Index < 104)
+	{
+		int32 EquippedSlot = Index - 100;
+		if (EquippedWeapons.IsValidIndex(EquippedSlot) && EquippedWeapons[EquippedSlot])
+		{
+			if (UWeaponBase* Weapon = EquippedWeapons[EquippedSlot]->GetDefaultObject<UWeaponBase>())
+			{
+				return Weapon->WeaponIconSprite;
 			}
 		}
 	}

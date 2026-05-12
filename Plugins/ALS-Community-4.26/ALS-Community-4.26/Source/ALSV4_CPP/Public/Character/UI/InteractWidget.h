@@ -9,6 +9,7 @@
 
 class UTextBlock;
 class UImage;
+class UPaperSprite;
 
 UCLASS()
 class ALSV4_CPP_API UInteractWidget : public UUserWidget
@@ -23,6 +24,10 @@ public:
 	/** Sets the button image dynamically */
 	UFUNCTION(BlueprintCallable, Category = "Interaction")
 	void SetButtonImage(UTexture2D* NewTexture);
+
+	/** Sets the button image from a Paper2D sprite */
+	UFUNCTION(BlueprintCallable, Category = "Interaction")
+	void SetButtonSprite(UPaperSprite* NewSprite);
 
 protected:
 	// Called when widget is constructed

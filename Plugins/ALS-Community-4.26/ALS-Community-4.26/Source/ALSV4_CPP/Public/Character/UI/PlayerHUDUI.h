@@ -36,13 +36,22 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void UpdateWeaponIcon(UTexture2D* NewIcon);
 
+	UFUNCTION(BlueprintCallable)
+	void UpdateWeaponIconSprite(UPaperSprite* NewIcon);
+
 	void NativeConstruct();
 
 	UFUNCTION(BlueprintCallable)
 	void UpdateAshOfWarIcon(UTexture2D* NewIcon);
 
 	UFUNCTION(BlueprintCallable)
+	void UpdateAshOfWarIconSprite(UPaperSprite* NewIcon);
+
+	UFUNCTION(BlueprintCallable)
 	void UpdatePotionIcon(UTexture2D* NewIcon);
+
+	UFUNCTION(BlueprintCallable)
+	void UpdatePotionIconSprite(UPaperSprite* NewIcon);
 
 	UFUNCTION(BlueprintCallable)
 	void UpdatePotionCount(int32 NewCount);
@@ -52,6 +61,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void UpdateInventorySlot(int32 SlotIndex, UTexture2D* Icon);
+
+	UFUNCTION(BlueprintCallable)
+	void UpdateInventorySlotSprite(int32 SlotIndex, UPaperSprite* Icon);
 
 	UFUNCTION(BlueprintCallable)
 	void HighlightSlot(int32 SlotIndex);
@@ -77,6 +89,7 @@ public:
 	UDragItemIconWidget* DragIconWidget;
 
 	void ShowDragIcon(UTexture2D* Icon);
+	void ShowDragIconSprite(UPaperSprite* Icon);
 	void HideDragIcon();
 
 protected:

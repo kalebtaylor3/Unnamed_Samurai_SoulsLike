@@ -81,7 +81,14 @@ void ALootDropActor::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AA
 			if (UInteractWidget* InteractUI = Cast<UInteractWidget>(RawWidget))
 			{
 				InteractUI->SetActionText(ActionText);
-				InteractUI->SetButtonImage(ActionIcon); // Your preloaded UTexture2D*
+				if (ActionSprite)
+				{
+					InteractUI->SetButtonSprite(ActionSprite);
+				}
+				else
+				{
+					InteractUI->SetButtonImage(ActionIcon); // Your preloaded UTexture2D*
+				}
 			}
 		}
 	}
@@ -118,7 +125,14 @@ void ALootDropActor::GiveLootToPlayer(AALSBaseCharacter* Player)
 
 				if (NotificationWidget)
 				{
-					NotificationWidget->SetupPickupInfo(FText::FromName(WeaponCDO->WeaponName), WeaponCDO->WeaponIcon);
+					if (WeaponCDO->WeaponIconSprite)
+					{
+						NotificationWidget->SetupPickupInfoSprite(FText::FromName(WeaponCDO->WeaponName), WeaponCDO->WeaponIconSprite);
+					}
+					else
+					{
+						NotificationWidget->SetupPickupInfo(FText::FromName(WeaponCDO->WeaponName), WeaponCDO->WeaponIcon);
+					}
 					NotificationWidget->AddToViewport();
 
 					// Play fade out animation

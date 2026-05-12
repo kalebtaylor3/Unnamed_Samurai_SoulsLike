@@ -8,6 +8,8 @@
 #include "Character/UI/DragItemIconWidget.h"
 #include "InventoryComponent.generated.h"
 
+class UPaperSprite;
+
 
 UENUM(BlueprintType)
 enum class EPotionType : uint8
@@ -83,7 +85,13 @@ public:
 	UTexture2D* HPPotionIcon;
 
 	UPROPERTY(EditAnywhere, Category = "Potions")
+	UPaperSprite* HPPotionIconSprite;
+
+	UPROPERTY(EditAnywhere, Category = "Potions")
 	UTexture2D* FPPotionIcon;
+
+	UPROPERTY(EditAnywhere, Category = "Potions")
+	UPaperSprite* FPPotionIconSprite;
 
 
 	UFUNCTION(BlueprintCallable)
@@ -106,6 +114,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Inventory")
 	UTexture2D* EmptySlotIcon;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Inventory")
+	UPaperSprite* EmptySlotIconSprite;
+
 	UPROPERTY(BlueprintReadOnly)
 	int32 SelectedSlotIndex = -1;
 
@@ -125,5 +136,6 @@ public:
 	UDragItemIconWidget* DragIconWidget = nullptr;
 
 	UTexture2D* GetIconAtIndex(int32 Index) const;
+	UPaperSprite* GetIconSpriteAtIndex(int32 Index) const;
 		
 };

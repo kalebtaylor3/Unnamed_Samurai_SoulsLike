@@ -10,6 +10,7 @@
 class UImage;
 class UTextBlock;
 class UTexture2D;
+class UPaperSprite;
 
 UCLASS()
 class ALSV4_CPP_API UItemPickupNotificationWidget : public UUserWidget
@@ -19,6 +20,9 @@ class ALSV4_CPP_API UItemPickupNotificationWidget : public UUserWidget
 public:
 	UFUNCTION(BlueprintCallable)
 	void SetupPickupInfo(FText ItemName, UTexture2D* ItemIcon);
+
+	UFUNCTION(BlueprintCallable)
+	void SetupPickupInfoSprite(FText ItemName, UPaperSprite* ItemIcon);
 
 	UPROPERTY(meta = (BindWidgetAnim), Transient)
 	UWidgetAnimation* FadeOut;
