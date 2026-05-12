@@ -165,6 +165,9 @@ void AALSPlayerController::RightMovementAction(const FInputActionValue& Value)
 
 void AALSPlayerController::CameraUpAction(const FInputActionValue& Value)
 {
+	if (PossessedCharacter && PossessedCharacter->Inventory && PossessedCharacter->Inventory->bIsInventoryOpen)
+		return;
+
 	if (PossessedCharacter)
 	{
 		PossessedCharacter->CameraUpAction(Value.GetMagnitude());
@@ -174,6 +177,9 @@ void AALSPlayerController::CameraUpAction(const FInputActionValue& Value)
 void AALSPlayerController::CameraRightAction(const FInputActionValue& Value)
 {
 	const float AxisValue = Value.Get<float>();
+
+	if (PossessedCharacter && PossessedCharacter->Inventory && PossessedCharacter->Inventory->bIsInventoryOpen)
+		return;
 
 	if (PossessedCharacter)
 	{

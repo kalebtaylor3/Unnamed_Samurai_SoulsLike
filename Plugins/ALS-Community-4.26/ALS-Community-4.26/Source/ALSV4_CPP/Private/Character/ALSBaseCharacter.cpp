@@ -1439,6 +1439,9 @@ void AALSBaseCharacter::LimitRotation(float AimYawMin, float AimYawMax, float In
 
 void AALSBaseCharacter::ForwardMovementAction_Implementation(float Value)
 {
+	if (Inventory && Inventory->bIsInventoryOpen)
+		return;
+
 	if (MovementState == EALSMovementState::Grounded || MovementState == EALSMovementState::InAir)
 	{
 		// Default camera relative movement behavior
@@ -1449,6 +1452,9 @@ void AALSBaseCharacter::ForwardMovementAction_Implementation(float Value)
 
 void AALSBaseCharacter::RightMovementAction_Implementation(float Value)
 {
+	if (Inventory && Inventory->bIsInventoryOpen)
+		return;
+
 	if (MovementState == EALSMovementState::Grounded || MovementState == EALSMovementState::InAir)
 	{
 		// Default camera relative movement behavior
@@ -1459,11 +1465,17 @@ void AALSBaseCharacter::RightMovementAction_Implementation(float Value)
 
 void AALSBaseCharacter::CameraUpAction_Implementation(float Value)
 {
+	if (Inventory && Inventory->bIsInventoryOpen)
+		return;
+
 	AddControllerPitchInput(LookUpDownRate * Value);
 }
 
 void AALSBaseCharacter::CameraRightAction_Implementation(float Value)
 {
+	if (Inventory && Inventory->bIsInventoryOpen)
+		return;
+
 	AddControllerYawInput(LookLeftRightRate * Value);
 }
 
