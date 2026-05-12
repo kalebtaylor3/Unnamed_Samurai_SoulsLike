@@ -91,7 +91,7 @@ void UInventoryComponent::CycleNextWeapon()
 
 	bCanCycleWeapon = false;
 
-	const int32 TotalSlots = EquippedWeapons.Num(); // +1 for "no weapon"
+	const int32 TotalSlots = EquippedWeapons.Num() + 1; // +1 for "no weapon"
 	EquippedIndex = (EquippedIndex + 1) % TotalSlots;
 
 	if (auto* OwnerChar = Cast<AALSBaseCharacter>(GetOwner()))
