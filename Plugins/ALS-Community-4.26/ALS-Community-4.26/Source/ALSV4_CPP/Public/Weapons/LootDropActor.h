@@ -61,6 +61,9 @@ protected:
 	UInteractWidget* InteractWidgetInstance;
 
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
+	TSubclassOf<UInteractWidget> InteractWidgetClass;
+
 	/** Action text for interaction (e.g., "Pick up Rune") */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
 	FText ActionText = FText::FromString("Pick up item");

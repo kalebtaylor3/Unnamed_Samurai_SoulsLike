@@ -165,9 +165,6 @@ void AALSPlayerController::RightMovementAction(const FInputActionValue& Value)
 
 void AALSPlayerController::CameraUpAction(const FInputActionValue& Value)
 {
-	if (ShouldIgnoreGameplayInput())
-		return;
-
 	if (PossessedCharacter)
 	{
 		PossessedCharacter->CameraUpAction(Value.GetMagnitude());
@@ -176,9 +173,6 @@ void AALSPlayerController::CameraUpAction(const FInputActionValue& Value)
 
 void AALSPlayerController::CameraRightAction(const FInputActionValue& Value)
 {
-	if (ShouldIgnoreGameplayInput())
-		return;
-
 	const float AxisValue = Value.Get<float>();
 
 	if (PossessedCharacter)

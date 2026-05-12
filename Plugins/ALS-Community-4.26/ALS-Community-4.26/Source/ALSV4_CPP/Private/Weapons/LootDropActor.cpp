@@ -9,6 +9,7 @@
 #include "Character/ALSBaseCharacter.h"
 #include "BonfireSaveGame.h"
 #include "Character/UI/InteractWidget.h"
+#include "Kismet/GameplayStatics.h"
 
 ALootDropActor::ALootDropActor()
 {
@@ -44,6 +45,11 @@ ALootDropActor::ALootDropActor()
 void ALootDropActor::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (InteractWidgetClass)
+	{
+		InteractWidgetComponent->SetWidgetClass(InteractWidgetClass.Get());
+	}
 
 	if (UGameplayStatics::DoesSaveGameExist(TEXT("BonfireSlot"), 0))
 	{
