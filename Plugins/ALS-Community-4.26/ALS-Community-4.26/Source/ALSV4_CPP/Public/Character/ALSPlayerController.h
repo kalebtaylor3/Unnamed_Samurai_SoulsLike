@@ -9,6 +9,7 @@
 #include "ALSPlayerController.generated.h"
 
 class AALSBaseCharacter;
+class UInputAction;
 class UInputMappingContext;
 
 /**
@@ -26,7 +27,7 @@ public:
 
 	virtual void SetupInputComponent() override;
 
-	virtual void BindActions(UInputMappingContext* Context);
+	virtual void BindActions(UInputMappingContext* Context, TSet<const UInputAction*>& BoundActions);
 
 protected:
 	void SetupInputs();

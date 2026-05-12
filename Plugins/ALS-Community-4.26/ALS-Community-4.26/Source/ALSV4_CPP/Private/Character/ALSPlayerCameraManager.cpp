@@ -86,6 +86,10 @@ void AALSPlayerCameraManager::TargetLock()
 	{
 		AActor* BestTarget = nullptr;
 		float ClosestScore = FLT_MAX;
+		int32 EnemyTagCount = 0;
+		int32 DeadCount = 0;
+		int32 TooFarCount = 0;
+		int32 BlockedCount = 0;
 
 		const FVector PlayerLocation = ControlledCharacter->GetActorLocation();
 		const FVector PlayerViewDir = ControlledCharacter->GetControlRotation().Vector();
@@ -93,16 +97,27 @@ void AALSPlayerCameraManager::TargetLock()
 		for (TActorIterator<AActor> It(GetWorld()); It; ++It)
 		{
 			AActor* Candidate = *It;
-			if (!Candidate || Candidate == ControlledCharacter || !Candidate->ActorHasTag("Enemy")) continue;
+			if (!Candidate || Candidate == ControlledCharacter) continue;
+			if (!Candidate->ActorHasTag("Enemy")) continue;
+
+			EnemyTagCount++;
 
 			if (UEnemyHealthComponent* HealthComp = Candidate->FindComponentByClass<UEnemyHealthComponent>())
 			{
-				if (HealthComp->bIsDead) continue;
+				if (HealthComp->bIsDead)
+				{
+					DeadCount++;
+					continue;
+				}
 			}
 
 			const FVector EnemyLocation = Candidate->GetActorLocation();
 			const float Distance = FVector::Dist(PlayerLocation, EnemyLocation);
-			if (Distance > LockOnMaxDistance) continue;
+			if (Distance > LockOnMaxDistance)
+			{
+				TooFarCount++;
+				continue;
+			}
 
 			// Visibility check
 			FHitResult Hit;
@@ -118,7 +133,11 @@ void AALSPlayerCameraManager::TargetLock()
 				Params
 			);
 
-			if (bBlocked) continue;
+			if (bBlocked)
+			{
+				BlockedCount++;
+				continue;
+			}
 
 			// Score: weighted sum of distance and angle
 			const FVector ToTarget = (EnemyLocation - PlayerLocation).GetSafeNormal();
@@ -150,12 +169,20 @@ void AALSPlayerCameraManager::TargetLock()
 			}
 
 			ControlledCharacter->LookingDirectionAction();
-			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Target Lock: ON"));
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green,
+					FString::Printf(TEXT("Target Lock: ON -> %s"), *BestTarget->GetName()));
+			}
 		}
 		else
 		{
 			bIsTargetLocked = false;
-			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, TEXT("No valid target found"));
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+					FString::Printf(TEXT("No valid target found. Enemies=%d Dead=%d TooFar=%d Blocked=%d"), EnemyTagCount, DeadCount, TooFarCount, BlockedCount));
+			}
 		}
 	}
 	else

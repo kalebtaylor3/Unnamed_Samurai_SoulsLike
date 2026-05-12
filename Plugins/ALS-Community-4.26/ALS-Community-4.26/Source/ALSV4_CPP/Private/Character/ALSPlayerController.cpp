@@ -63,8 +63,9 @@ void AALSPlayerController::SetupInputComponent()
 		EnhancedInputComponent->ClearActionValueBindings();
 		EnhancedInputComponent->ClearDebugKeyBindings();
 
-		BindActions(DefaultInputMappingContext);
-		BindActions(DebugInputMappingContext);
+		TSet<const UInputAction*> BoundActions;
+		BindActions(DefaultInputMappingContext, BoundActions);
+		BindActions(DebugInputMappingContext, BoundActions);
 	}
 	else
 	{
@@ -72,7 +73,7 @@ void AALSPlayerController::SetupInputComponent()
 	}
 }
 
-void AALSPlayerController::BindActions(UInputMappingContext* Context)
+void AALSPlayerController::BindActions(UInputMappingContext* Context, TSet<const UInputAction*>& BoundActions)
 {
 	if (Context)
 	{
@@ -80,15 +81,15 @@ void AALSPlayerController::BindActions(UInputMappingContext* Context)
 		UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent);
 		if (EnhancedInputComponent)
 		{
-			// There may be more than one keymapping assigned to one action. So, first filter duplicate action entries to prevent multiple delegate bindings
-			TSet<const UInputAction*> UniqueActions;
 			for (const FEnhancedActionKeyMapping& Keymapping : Mappings)
 			{
-				UniqueActions.Add(Keymapping.Action);
-			}
-			for (const UInputAction* UniqueAction : UniqueActions)
-			{
-				EnhancedInputComponent->BindAction(UniqueAction, ETriggerEvent::Triggered, Cast<UObject>(this), UniqueAction->GetFName());
+				if (!Keymapping.Action || BoundActions.Contains(Keymapping.Action))
+				{
+					continue;
+				}
+
+				BoundActions.Add(Keymapping.Action);
+				EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Triggered, Cast<UObject>(this), Keymapping.Action->GetFName());
 			}
 		}
 	}

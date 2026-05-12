@@ -22,4 +22,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LockOn")
 	APlayerController* TargetPlayer = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LockOn")
+	FVector2D WidgetDrawSize = FVector2D(100.0f, 100.0f);
 };
