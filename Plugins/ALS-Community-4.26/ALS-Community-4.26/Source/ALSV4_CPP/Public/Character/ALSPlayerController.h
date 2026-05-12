@@ -73,6 +73,9 @@ protected:
 	void LightAttackAction(const FInputActionValue& Value);
 
 	UFUNCTION()
+	void InventorySelectAction(const FInputActionValue& Value);
+
+	UFUNCTION()
 	void AshOfWarAction(const FInputActionValue& Value);
 
 	UFUNCTION()

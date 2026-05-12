@@ -15,6 +15,7 @@
 #include "Character/UI/BonfireMenuWidget.h"
 #include "Character/ALSCharacterMovementComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "BonfireSaveGame.h"
@@ -1917,6 +1918,28 @@ void AALSBaseCharacter::ToggleInventory()
 	Inventory->bIsInventoryOpen = !Inventory->bIsInventoryOpen;
 	Inventory->UpdateInventoryUI(); // Optionally refresh on open
 	PlayerHUDWidget->SetInventoryPanelVisible(Inventory->bIsInventoryOpen);
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		if (Inventory->bIsInventoryOpen)
+		{
+			FInputModeGameAndUI InputMode;
+			InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+			InputMode.SetHideCursorDuringCapture(false);
+
+			PC->SetInputMode(InputMode);
+			PC->bShowMouseCursor = true;
+			PC->bEnableClickEvents = true;
+			PC->bEnableMouseOverEvents = true;
+		}
+		else
+		{
+			PC->SetInputMode(FInputModeGameOnly());
+			PC->bShowMouseCursor = false;
+			PC->bEnableClickEvents = false;
+			PC->bEnableMouseOverEvents = false;
+		}
+	}
 
 	if (Inventory->bIsInventoryOpen)
 	{

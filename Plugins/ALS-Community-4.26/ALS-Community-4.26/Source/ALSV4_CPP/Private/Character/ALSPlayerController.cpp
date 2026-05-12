@@ -328,7 +328,6 @@ void AALSPlayerController::LightAttackAction(const FInputActionValue& Value)
 
 	if (PossessedCharacter->Inventory->bIsInventoryOpen)
 	{
-		PossessedCharacter->ConfirmSlot();
 		return;
 	}
 
@@ -336,6 +335,17 @@ void AALSPlayerController::LightAttackAction(const FInputActionValue& Value)
 	{
 		PossessedCharacter->CombatSystem->LightAttack();
 	}
+}
+
+void AALSPlayerController::InventorySelectAction(const FInputActionValue& Value)
+{
+	if (ShouldIgnoreGameplayInput())
+		return;
+
+	if (!PossessedCharacter || !PossessedCharacter->Inventory || !PossessedCharacter->Inventory->bIsInventoryOpen)
+		return;
+
+	PossessedCharacter->ConfirmSlot();
 }
 
 void AALSPlayerController::AshOfWarAction(const FInputActionValue& Value)
