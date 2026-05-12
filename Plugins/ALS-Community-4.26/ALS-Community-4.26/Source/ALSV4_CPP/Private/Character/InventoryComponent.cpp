@@ -103,7 +103,7 @@ void UInventoryComponent::CycleNextWeapon()
 			{
 				EquipWeaponByIndex(EquippedIndex);
 				bCanCycleWeapon = true; // Re-enable cycling after equip
-			}, 0.20f, false); // You can adjust this time (0.15s–0.25s feels good)
+			}, 0.20f, false); // You can adjust this time (0.15sï¿½0.25s feels good)
 	}
 	else
 	{

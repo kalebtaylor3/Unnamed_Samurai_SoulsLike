@@ -124,8 +124,16 @@ void AALSPlayerController::SetupCamera()
 	}
 }
 
+bool AALSPlayerController::ShouldIgnoreGameplayInput() const
+{
+	return !PossessedCharacter || (PossessedCharacter->Inventory && PossessedCharacter->Inventory->bHealing);
+}
+
 void AALSPlayerController::ForwardMovementAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->PlayerStats->bBeingHit)
 		return;
 
@@ -140,6 +148,9 @@ void AALSPlayerController::ForwardMovementAction(const FInputActionValue& Value)
 
 void AALSPlayerController::RightMovementAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->PlayerStats->bBeingHit)
 		return;
 
@@ -154,6 +165,9 @@ void AALSPlayerController::RightMovementAction(const FInputActionValue& Value)
 
 void AALSPlayerController::CameraUpAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter)
 	{
 		PossessedCharacter->CameraUpAction(Value.GetMagnitude());
@@ -162,6 +176,9 @@ void AALSPlayerController::CameraUpAction(const FInputActionValue& Value)
 
 void AALSPlayerController::CameraRightAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	const float AxisValue = Value.Get<float>();
 
 	if (PossessedCharacter)
@@ -177,6 +194,9 @@ void AALSPlayerController::CameraRightAction(const FInputActionValue& Value)
 
 void AALSPlayerController::JumpAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->PlayerStats->bBeingHit)
 		return;
 
@@ -205,6 +225,9 @@ void AALSPlayerController::JumpAction(const FInputActionValue& Value)
 
 void AALSPlayerController::InteractAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->ActiveLootDrop)
 	{
 		PossessedCharacter->ActiveLootDrop->GiveLootToPlayer(PossessedCharacter);
@@ -219,6 +242,9 @@ void AALSPlayerController::InteractAction(const FInputActionValue& Value)
 
 void AALSPlayerController::WeaponChangeAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -236,6 +262,9 @@ void AALSPlayerController::WeaponChangeAction(const FInputActionValue& Value)
 
 void AALSPlayerController::FlaskChangeAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -248,6 +277,9 @@ void AALSPlayerController::FlaskChangeAction(const FInputActionValue& Value)
 
 void AALSPlayerController::UsePotionAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -260,6 +292,9 @@ void AALSPlayerController::UsePotionAction(const FInputActionValue& Value)
 
 void AALSPlayerController::StanceChangeAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -271,6 +306,9 @@ void AALSPlayerController::StanceChangeAction(const FInputActionValue& Value)
 
 void AALSPlayerController::CheckForStanceChangeAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -282,6 +320,9 @@ void AALSPlayerController::CheckForStanceChangeAction(const FInputActionValue& V
 
 void AALSPlayerController::LightAttackAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -299,6 +340,9 @@ void AALSPlayerController::LightAttackAction(const FInputActionValue& Value)
 
 void AALSPlayerController::AshOfWarAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -311,6 +355,9 @@ void AALSPlayerController::AshOfWarAction(const FInputActionValue& Value)
 
 void AALSPlayerController::HeavyAttackAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -322,6 +369,9 @@ void AALSPlayerController::HeavyAttackAction(const FInputActionValue& Value)
 
 void AALSPlayerController::CrouchAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -333,6 +383,9 @@ void AALSPlayerController::CrouchAction(const FInputActionValue& Value)
 
 void AALSPlayerController::TargetLockAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -344,6 +397,9 @@ void AALSPlayerController::TargetLockAction(const FInputActionValue& Value)
 
 void AALSPlayerController::SprintAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -355,6 +411,9 @@ void AALSPlayerController::SprintAction(const FInputActionValue& Value)
 
 void AALSPlayerController::AimAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -366,6 +425,9 @@ void AALSPlayerController::AimAction(const FInputActionValue& Value)
 
 void AALSPlayerController::CameraTapAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -377,6 +439,9 @@ void AALSPlayerController::CameraTapAction(const FInputActionValue& Value)
 
 void AALSPlayerController::CameraHeldAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -388,6 +453,9 @@ void AALSPlayerController::CameraHeldAction(const FInputActionValue& Value)
 
 void AALSPlayerController::RollAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->PlayerStats->bBeingHit)
 		return;
 
@@ -410,6 +478,9 @@ void AALSPlayerController::RollAction(const FInputActionValue& Value)
 
 void AALSPlayerController::WalkAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -421,6 +492,9 @@ void AALSPlayerController::WalkAction(const FInputActionValue& Value)
 
 void AALSPlayerController::RagdollAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -432,6 +506,9 @@ void AALSPlayerController::RagdollAction(const FInputActionValue& Value)
 
 void AALSPlayerController::VelocityDirectionAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 
@@ -443,6 +520,9 @@ void AALSPlayerController::VelocityDirectionAction(const FInputActionValue& Valu
 
 void AALSPlayerController::LookingDirectionAction(const FInputActionValue& Value)
 {
+	if (ShouldIgnoreGameplayInput())
+		return;
+
 	if (PossessedCharacter->bIsResting)
 		return;
 

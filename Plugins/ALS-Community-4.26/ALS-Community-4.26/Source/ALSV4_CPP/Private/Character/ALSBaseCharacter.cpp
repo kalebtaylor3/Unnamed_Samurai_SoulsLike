@@ -287,6 +287,16 @@ void AALSBaseCharacter::BeginPlay()
 						PlayerStats->CurrentLevel,
 						PlayerStats->MaxLevel
 					);
+
+					if (PlayerHUDWidget)
+					{
+						PlayerHUDWidget->UpdateRunes(PlayerStats->CurrentRunes);
+					}
+
+					if (Inventory && PlayerHUDWidget)
+					{
+						Inventory->UpdatePotionHUD();
+					}
 				}
 			}, 0.05f, false); // small delay to ensure HUD is ready
 	}

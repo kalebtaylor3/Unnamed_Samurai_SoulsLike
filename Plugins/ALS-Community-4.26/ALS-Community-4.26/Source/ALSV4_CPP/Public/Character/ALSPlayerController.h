@@ -34,6 +34,8 @@ protected:
 
 	void SetupCamera();
 
+	bool ShouldIgnoreGameplayInput() const;
+
 	UFUNCTION()
 	void ForwardMovementAction(const FInputActionValue& Value);
 
