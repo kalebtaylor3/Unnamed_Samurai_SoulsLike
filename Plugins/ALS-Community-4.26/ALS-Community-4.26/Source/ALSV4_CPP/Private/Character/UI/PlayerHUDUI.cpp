@@ -416,6 +416,14 @@ void UPlayerHUDUI::UpdateRunes(int32 NewRunes)
 	}
 }
 
+void UPlayerHUDUI::SetInventoryPanelVisible(bool bVisible)
+{
+	if (InventoryPannel)
+	{
+		InventoryPannel->SetVisibility(bVisible ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	}
+}
+
 void UPlayerHUDUI::SetSlotToDefaultColor(int32 SlotIndex)
 {
 	UBorder* BGWidget = nullptr;

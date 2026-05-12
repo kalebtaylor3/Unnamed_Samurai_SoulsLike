@@ -79,6 +79,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void UpdateRunes(int32 NewRunes);
 
+	UFUNCTION(BlueprintCallable)
+	void SetInventoryPanelVisible(bool bVisible);
+
 	int32 GetHoveredSlotIndex() const { return HoveredSlotIndex; }
 	bool IsMouseHoveringSlot() const { return HoveredSlotIndex != -1; }
 
@@ -137,6 +140,9 @@ protected:
 	/// <summary>
 	/// Inventory
 	/// </summary>
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UCanvasPanel* InventoryPannel;
 
 	UPROPERTY(meta = (BindWidget))
 	UImage* WeaponSlotImage_0;

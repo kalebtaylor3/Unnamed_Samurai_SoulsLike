@@ -1904,5 +1904,14 @@ void AALSBaseCharacter::ToggleInventory()
 {
 	Inventory->bIsInventoryOpen = !Inventory->bIsInventoryOpen;
 	Inventory->UpdateInventoryUI(); // Optionally refresh on open
-	PlayerHUDWidget->HighlightSlot(InventoryNavIndex);
+	PlayerHUDWidget->SetInventoryPanelVisible(Inventory->bIsInventoryOpen);
+
+	if (Inventory->bIsInventoryOpen)
+	{
+		PlayerHUDWidget->HighlightSlot(InventoryNavIndex);
+	}
+	else
+	{
+		Inventory->ClearSelection();
+	}
 }
