@@ -45,7 +45,7 @@ void UEnemyHealthComponent::TakeDamage(float DamageAmount)
 						{
 							BB->SetValueAsBool("WasHit", false);
 						}
-					}, 5.0f, false); // Adjust duration as needed
+					}, 0.5f, false); // Adjust duration as needed
 			}
 		}
 	}

@@ -55,6 +55,7 @@ void AHeldWeaponBase::OnDamageHitboxOverlap(UPrimitiveComponent* OverlappedCompo
 	if (UEnemyHealthComponent* HealthComp = OtherActor->FindComponentByClass<UEnemyHealthComponent>())
 	{
 		HealthComp->TakeDamage(CurrentDamageAmount);
+		const bool bKilledEnemy = HealthComp->IsDeadOrOutOfHealth();
 		AlreadyDamagedActors.Add(OtherActor);
 
 		// === Spawn hit particle ===
@@ -79,19 +80,15 @@ void AHeldWeaponBase::OnDamageHitboxOverlap(UPrimitiveComponent* OverlappedCompo
 			}
 
 			const FVector HitDirection = (HitLocation - WeaponHitboxLocation).GetSafeNormal();
-			HitLocation += HitDirection * 18.f + FVector::UpVector * 8.f;
-
 			FRotator EffectRotation = HitDirection.Rotation();
 			EffectRotation.Pitch += 180.f; // Flip to face away from enemy
-			EffectRotation.Yaw += FMath::RandBool() ? FMath::RandRange(18.f, 32.f) : FMath::RandRange(-32.f, -18.f);
-			EffectRotation.Roll += FMath::RandRange(-12.f, 12.f);
 
 			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitEffect, HitLocation, EffectRotation, EffectScale);
 		}
 
 		// === Hitstop ===
-		const float HitstopDuration = 0.05f;
-		const float TimeDilationAmount = 0.01f;
+		const float HitstopDuration = bKilledEnemy ? 0.95f : 0.10f;
+		const float TimeDilationAmount = 0.02f;
 
 		UGameplayStatics::SetGlobalTimeDilation(GetWorld(), TimeDilationAmount);
 

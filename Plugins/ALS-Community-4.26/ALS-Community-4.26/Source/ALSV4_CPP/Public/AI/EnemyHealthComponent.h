@@ -37,6 +37,9 @@ public:
 	void TakeDamage(float DamageAmount);
 
 	UFUNCTION(BlueprintCallable)
+	bool IsDeadOrOutOfHealth() const { return bIsDead || CurrentHealth <= 0.0f; }
+
+	UFUNCTION(BlueprintCallable)
 	void ShowHealthBar(bool bShow);
 
 	UPROPERTY(BlueprintAssignable, Category = "Events")

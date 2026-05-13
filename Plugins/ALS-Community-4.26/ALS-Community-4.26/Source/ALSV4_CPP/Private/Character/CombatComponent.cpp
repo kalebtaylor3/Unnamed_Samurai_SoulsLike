@@ -139,10 +139,10 @@ void UCombatComponent::LightAttack()
 			return;
 		}
 
-		// Already attacking — queue next if allowed
+		// Already attacking ï¿½ queue next if allowed
 		if (bIsAttacking)
 		{
-			// Only queue if input is allowed and we haven’t queued this window yet
+			// Only queue if input is allowed and we havenï¿½t queued this window yet
 			if (bCanReceiveInput && !bInputQueuedThisWindow && AttackIndex + 1 < CurrentMontageList.Num())
 			{
 				QueuedComboIndices.Enqueue(AttackIndex + 1);
@@ -152,7 +152,7 @@ void UCombatComponent::LightAttack()
 			return;
 		}
 
-		// Not attacking — start combo
+		// Not attacking ï¿½ start combo
 		AttackIndex = 0;
 		bIsAttacking = true;
 		bCanReceiveInput = false;
@@ -285,7 +285,6 @@ void UCombatComponent::OnAttackStarted()
 	bIsAttacking = true;
 	bCanReceiveInput = false;
 	canRoll = false;
-	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("attack Started"));
 }
 
 void UCombatComponent::OnComboWindowOpened()
@@ -304,7 +303,6 @@ void UCombatComponent::OnAttackEnded()
 	if (!OwnerCharacter || CurrentWeapon->OneHandedLightAttackMontages.Num() == 0)
 		return;
 
-	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("attack ended"));
 
 	// If we queued another input, continue the combo
 	if (!QueuedComboIndices.IsEmpty())
