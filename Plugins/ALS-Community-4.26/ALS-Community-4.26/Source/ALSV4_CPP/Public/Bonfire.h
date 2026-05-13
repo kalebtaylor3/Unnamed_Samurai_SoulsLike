@@ -10,6 +10,7 @@
 
 class UBoxComponent;
 class UWidgetComponent;
+class UPaperSprite;
 
 UCLASS()
 class ALSV4_CPP_API ABonfire : public AActor
@@ -62,6 +63,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	UTexture2D* ButtonTexture;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	UPaperSprite* ButtonSprite;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	FText ActionText = FText::FromString("Rest at Bonfire");

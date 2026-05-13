@@ -63,7 +63,14 @@ void ABonfire::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Other
 			if (UInteractWidget* InteractUI = Cast<UInteractWidget>(RawWidget))
 			{
 				InteractUI->SetActionText(ActionText);
-				InteractUI->SetButtonImage(ButtonTexture); // Your preloaded UTexture2D*
+				if (ButtonSprite)
+				{
+					InteractUI->SetButtonSprite(ButtonSprite);
+				}
+				else
+				{
+					InteractUI->SetButtonImage(ButtonTexture);
+				}
 			}
 		}
 
