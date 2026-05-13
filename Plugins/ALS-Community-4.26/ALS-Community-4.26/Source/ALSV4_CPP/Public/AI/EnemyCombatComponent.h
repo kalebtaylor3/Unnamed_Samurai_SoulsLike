@@ -36,7 +36,17 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	float DodgeTriggerRange = 200.0f; // Optional tweakable range
 
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float BetweenAttackDodgeChance = 0.25f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge")
+	float BetweenAttackDodgeRange = 220.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge", meta = (ClampMin = "0.0"))
+	float MinTimeBetweenAttackDodges = 1.25f;
+
 	void PlayDodgeMontage();
+	bool TryPlayDodgeMontage();
 	void OnDodgeFinished();
 
 	EEnemyAIState CurrentState = EEnemyAIState::Idle;
@@ -110,4 +120,8 @@ private:
 
 	void EnterState(EEnemyAIState NewState);
 	void OnAttackFinished();
+	bool ShouldDodgeBetweenAttacks(const AActor* Target) const;
+	void RequestDodge();
+
+	float LastBetweenAttackDodgeTime = -1000.0f;
 };

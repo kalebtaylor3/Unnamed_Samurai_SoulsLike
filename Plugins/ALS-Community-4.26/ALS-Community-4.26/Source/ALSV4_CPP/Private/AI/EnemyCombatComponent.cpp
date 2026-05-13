@@ -202,6 +202,16 @@ void UEnemyCombatComponent::ContinueCombo()
 
 	const float NextStaminaCost = ComboStaminaCosts.IsValidIndex(ComboIndex + 1) ? ComboStaminaCosts[ComboIndex + 1] : 999.f;
 
+	if (Target && ShouldDodgeBetweenAttacks(Target))
+	{
+		bComboOngoing = false;
+		ComboIndex = 0;
+		LastBetweenAttackDodgeTime = GetWorld()->GetTimeSeconds();
+		RequestDodge();
+
+		return;
+	}
+
 	if (bInRange && CurrentStamina >= NextStaminaCost && ComboIndex + 1 < AttackMontages.Num())
 	{
 		ComboIndex++;
@@ -221,10 +231,7 @@ void UEnemyCombatComponent::ContinueCombo()
 
 			if (Distance <= DodgeTriggerRange && DodgeMontage)
 			{
-				if (Blackboard)
-				{
-					Blackboard->SetValueAsBool("ShouldDodge", true); // Trigger the BT node
-				}
+				RequestDodge();
 
 				return; // Let behavior tree handle the dodge
 			}
@@ -235,6 +242,37 @@ void UEnemyCombatComponent::ContinueCombo()
 		{
 			EnterState(EEnemyAIState::Idle);
 		}
+	}
+}
+
+bool UEnemyCombatComponent::ShouldDodgeBetweenAttacks(const AActor* Target) const
+{
+	if (!OwnerCharacter || !Target || !DodgeMontage || !GetWorld())
+	{
+		return false;
+	}
+
+	if (GetWorld()->GetTimeSeconds() - LastBetweenAttackDodgeTime < MinTimeBetweenAttackDodges)
+	{
+		return false;
+	}
+
+	const float Distance = FVector::Dist2D(Target->GetActorLocation(), OwnerCharacter->GetActorLocation());
+	if (Distance > BetweenAttackDodgeRange)
+	{
+		return false;
+	}
+
+	return FMath::FRand() <= BetweenAttackDodgeChance;
+}
+
+void UEnemyCombatComponent::RequestDodge()
+{
+	GetWorld()->GetTimerManager().SetTimer(StaminaRegenTimer, this, &UEnemyCombatComponent::RegenStamina, 1.0f, true);
+
+	if (Blackboard)
+	{
+		Blackboard->SetValueAsBool("ShouldDodge", true);
 	}
 }
 
@@ -271,7 +309,15 @@ void UEnemyCombatComponent::OnAttackFinished()
 
 void UEnemyCombatComponent::PlayDodgeMontage()
 {
-	if (!DodgeMontage || !OwnerCharacter || bIsAttacking) return;
+	TryPlayDodgeMontage();
+}
+
+bool UEnemyCombatComponent::TryPlayDodgeMontage()
+{
+	if (!DodgeMontage || !OwnerCharacter || bIsAttacking)
+	{
+		return false;
+	}
 
 	if (UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance())
 	{
@@ -285,7 +331,11 @@ void UEnemyCombatComponent::PlayDodgeMontage()
 		// Reset after dodge montage duration
 		const float Duration = DodgeMontage->GetPlayLength();
 		GetWorld()->GetTimerManager().SetTimer(CooldownTimer, this, &UEnemyCombatComponent::OnDodgeFinished, Duration, false);
+
+		return true;
 	}
+
+	return false;
 }
 
 void UEnemyCombatComponent::OnDodgeFinished()

@@ -6,6 +6,8 @@
 #include "BehaviorTree/BTTaskNode.h"
 #include "BTTask_Dodge.generated.h"
 
+class AALSBaseCharacter;
+
 /**
  * 
  */
@@ -25,9 +27,30 @@ protected:
 	UPROPERTY()
 	class UEnemyCombatComponent* CombatComponent;
 
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	bool bRequireShouldDodge = true;
+
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	bool bAllowProximityDodge = false;
+
+	UPROPERTY(EditAnywhere, Category = "Dodge", meta = (EditCondition = "bAllowProximityDodge"))
+	float ProximityDodgeRange = 250.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Dodge", meta = (EditCondition = "bAllowProximityDodge", ClampMin = "0.0", ClampMax = "1.0"))
+	float ProximityDodgeChance = 0.35f;
+
+	UPROPERTY(EditAnywhere, Category = "Dodge", meta = (ClampMin = "0.0"))
+	float MinimumTimeBetweenDodges = 1.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	bool bSucceedWhenSkippingDodge = false;
+
 private:
+	bool ShouldAttemptDodge(UBehaviorTreeComponent& OwnerComp, AALSBaseCharacter* Enemy) const;
+
 	bool bIsWaitingForMontageEnd = false;
 	float DodgeDuration = 0.0f;
 	float ElapsedTime = 0.0f;
+	float LastDodgeTime = -1000.0f;
 	
 };
