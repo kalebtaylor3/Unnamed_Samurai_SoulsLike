@@ -4,8 +4,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Character/UI/InteractionInputTypes.h"
 #include "InputActionValue.h"
 #include "GameFramework/PlayerController.h"
+#include "InputKeyEventArgs.h"
 #include "ALSPlayerController.generated.h"
 
 class AALSBaseCharacter;
@@ -26,6 +28,8 @@ public:
 	virtual void OnRep_Pawn() override;
 
 	virtual void SetupInputComponent() override;
+
+	virtual bool InputKey(const FInputKeyEventArgs& Params) override;
 
 	virtual void BindActions(UInputMappingContext* Context, TSet<const UInputAction*>& BoundActions);
 
@@ -70,6 +74,12 @@ protected:
 	void CheckForStanceChangeAction(const FInputActionValue& Value);
 
 	UFUNCTION()
+	void CheckForStanceChangeStartedAction(const FInputActionValue& Value);
+
+	UFUNCTION()
+	void CheckForStanceChangeReleasedAction(const FInputActionValue& Value);
+
+	UFUNCTION()
 	void LightAttackAction(const FInputActionValue& Value);
 
 	UFUNCTION()
@@ -80,6 +90,12 @@ protected:
 
 	UFUNCTION()
 	void HeavyAttackAction(const FInputActionValue& Value);
+
+	UFUNCTION()
+	void HeavyAttackStartedAction(const FInputActionValue& Value);
+
+	UFUNCTION()
+	void HeavyAttackReleasedAction(const FInputActionValue& Value);
 
 	UFUNCTION()
 	void CrouchAction(const FInputActionValue& Value);
@@ -152,6 +168,9 @@ public:
 	/** Main character reference */
 	UPROPERTY(BlueprintReadOnly, Category = "ALS")
 	TObjectPtr<AALSBaseCharacter> PossessedCharacter = nullptr;
+
+	UPROPERTY(BlueprintReadOnly, Category = "ALS|Input")
+	EInteractionInputType CurrentInteractionInputType = EInteractionInputType::KeyboardMouse;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "ALS|Input")
 	TObjectPtr<UInputMappingContext> DefaultInputMappingContext = nullptr;

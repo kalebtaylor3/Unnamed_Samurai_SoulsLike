@@ -10,49 +10,6 @@ UCombatComponent::UCombatComponent()
 void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	if (bIsChargingHeavy && bIsHoldingCharge && CurrentWeapon->ChargeMontage)
-	{
-		UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance();
-		if (!AnimInstance || !AnimInstance->Montage_IsPlaying(CurrentWeapon->ChargeMontage)) return;
-
-		float CurrentPosition = AnimInstance->Montage_GetPosition(CurrentWeapon->ChargeMontage);
-
-		if (!bIsLoopingCharge)
-		{
-			if (CurrentPosition >= CurrentWeapon->ChargeMontage->GetPlayLength() - 0.05f)
-			{
-				AnimInstance->Montage_JumpToSection(FName("Loop"), CurrentWeapon->ChargeMontage);
-				bIsLoopingCharge = true;
-			}
-		}
-		else
-		{
-			// Get loop timing directly from the montage (not AnimInstance)
-			int32 SectionIndex = CurrentWeapon->ChargeMontage->GetSectionIndex(FName("Loop"));
-			float LoopStartTime = 0.f;
-			float LoopEndTime = CurrentWeapon->ChargeMontage->GetPlayLength();
-
-			if (SectionIndex != INDEX_NONE)
-			{
-				LoopStartTime = CurrentWeapon->ChargeMontage->CompositeSections[SectionIndex].GetTime();
-
-				if (SectionIndex + 1 < CurrentWeapon->ChargeMontage->CompositeSections.Num())
-				{
-					LoopEndTime = CurrentWeapon->ChargeMontage->CompositeSections[SectionIndex + 1].GetTime();
-				}
-			}
-
-			float LoopDuration = LoopEndTime - LoopStartTime;
-
-			// If at end of loop section, jump again
-			if (CurrentPosition >= LoopStartTime + LoopDuration - 0.05f)
-			{
-				AnimInstance->Montage_JumpToSection(FName("Loop"), CurrentWeapon->ChargeMontage);
-			}
-		}
-	}
-
 }
 
 void UCombatComponent::SetCheckingForStanceChange(bool value)
@@ -62,6 +19,12 @@ void UCombatComponent::SetCheckingForStanceChange(bool value)
 
 void UCombatComponent::SetStance()
 {
+	if (!bCanChangeStance)
+		return;
+
+	bCanChangeStance = false;
+	GetWorld()->GetTimerManager().SetTimer(StanceChangeCooldownTimer, this, &UCombatComponent::EnableStanceChange, 0.5f, false);
+
 	if (CurrentStance == ECombatStance::OneHanded)
 	{
 		CurrentStance = ECombatStance::TwoHanded;
@@ -73,6 +36,11 @@ void UCombatComponent::SetStance()
 
 	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Stance Changed"));
 	return;
+}
+
+void UCombatComponent::EnableStanceChange()
+{
+	bCanChangeStance = true;
 }
 
 void UCombatComponent::BeginPlay()
@@ -209,7 +177,19 @@ void UCombatComponent::PlayLightAttackMontage(int32 Index, const TArray<UAnimMon
 
 void UCombatComponent::StartChargeHeavyAttack()
 {
+	if (!OwnerCharacter || !CurrentWeapon)
+		return;
+
 	if (OwnerCharacter->GetOverlayState() == EALSOverlayState::Default)
+		return;
+
+	if (checkingForStanceChange)
+		return;
+
+	if (bIsAttacking || bIsChargingHeavy)
+		return;
+
+	if (!CurrentWeapon->ChargeMontage && !CurrentWeapon->ChargeMontageLoop)
 		return;
 
 	if (OwnerCharacter->PlayerStats->CurrentStamina < CurrentWeapon->HeavyAttackStaminaAmount)
@@ -218,17 +198,6 @@ void UCombatComponent::StartChargeHeavyAttack()
 		return;
 	}
 
-	if (checkingForStanceChange)
-		return;
-
-	if (!CurrentWeapon)
-		return;
-
-	if (OwnerCharacter->GetOverlayState() == EALSOverlayState::Default || bIsAttacking)
-		return;
-
-	if (!OwnerCharacter || !CurrentWeapon->ChargeMontage) return;
-
 	UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance();
 	if (AnimInstance)
 	{
@@ -236,34 +205,93 @@ void UCombatComponent::StartChargeHeavyAttack()
 		bIsAttacking = true;
 		bIsChargingHeavy = true;
 		bIsHoldingCharge = true;
-		bHasJumpedToLoop = false;
+		bIsLoopingCharge = false;
 
-		AnimInstance->Montage_Play(CurrentWeapon->ChargeMontage);
+		if (CurrentWeapon->ChargeMontage)
+		{
+			const float ChargeStartDuration = AnimInstance->Montage_Play(CurrentWeapon->ChargeMontage);
+			if (CurrentWeapon->ChargeMontageLoop && ChargeStartDuration > 0.f)
+			{
+				GetWorld()->GetTimerManager().SetTimer(ChargeLoopTimer, this, &UCombatComponent::PlayChargeLoopMontage, ChargeStartDuration, false);
+			}
+		}
+		else
+		{
+			PlayChargeLoopMontage();
+		}
 	}
 }
 
 void UCombatComponent::ReleaseChargeHeavyAttack()
 {
+	if (!OwnerCharacter || !CurrentWeapon)
+		return;
+
 	if (OwnerCharacter->GetOverlayState() == EALSOverlayState::Default)
 		return;
 
-	if (!CurrentWeapon)
+	if (!bIsChargingHeavy)
 		return;
-
-	if (!OwnerCharacter || !CurrentWeapon->HeavyAttackMontage || !bIsChargingHeavy) return;
 
 	bIsChargingHeavy = false;
 	bIsHoldingCharge = false;
 	bIsLoopingCharge = false;
+	GetWorld()->GetTimerManager().ClearTimer(ChargeLoopTimer);
 	GetWorld()->GetTimerManager().ClearTimer(OwnerCharacter->PlayerStats->StaminaRegenHandle);
-	OwnerCharacter->PlayerStats->UseStamina(CurrentWeapon->HeavyAttackStaminaAmount);
 
 	UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		bIsAttacking = false;
+		return;
+	}
+
 	if (AnimInstance)
 	{
-		AnimInstance->Montage_Stop(0.f, CurrentWeapon->ChargeMontage);
+		if (CurrentWeapon->ChargeMontage)
+		{
+			AnimInstance->Montage_Stop(0.f, CurrentWeapon->ChargeMontage);
+		}
+		if (CurrentWeapon->ChargeMontageLoop)
+		{
+			AnimInstance->Montage_Stop(0.f, CurrentWeapon->ChargeMontageLoop);
+		}
+
+		if (!CurrentWeapon->HeavyAttackMontage)
+		{
+			bIsAttacking = false;
+			return;
+		}
+
+		OwnerCharacter->PlayerStats->UseStamina(CurrentWeapon->HeavyAttackStaminaAmount);
 		AnimInstance->SetRootMotionMode(ERootMotionMode::RootMotionFromMontagesOnly);
 		AnimInstance->Montage_Play(CurrentWeapon->HeavyAttackMontage);
+	}
+}
+
+void UCombatComponent::PlayChargeLoopMontage()
+{
+	if (!OwnerCharacter || !CurrentWeapon || !CurrentWeapon->ChargeMontageLoop)
+		return;
+
+	if (!bIsChargingHeavy || !bIsHoldingCharge)
+		return;
+
+	UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance();
+	if (!AnimInstance)
+		return;
+
+	if (CurrentWeapon->ChargeMontage)
+	{
+		AnimInstance->Montage_Stop(0.f, CurrentWeapon->ChargeMontage);
+	}
+
+	bIsLoopingCharge = true;
+	AnimInstance->SetRootMotionMode(ERootMotionMode::RootMotionFromMontagesOnly);
+	const float LoopDuration = AnimInstance->Montage_Play(CurrentWeapon->ChargeMontageLoop);
+	if (LoopDuration > 0.f)
+	{
+		GetWorld()->GetTimerManager().SetTimer(ChargeLoopTimer, this, &UCombatComponent::PlayChargeLoopMontage, LoopDuration, false);
 	}
 }
 
@@ -300,7 +328,7 @@ void UCombatComponent::OnComboWindowClosed()
 
 void UCombatComponent::OnAttackEnded()
 {
-	if (!OwnerCharacter || CurrentWeapon->OneHandedLightAttackMontages.Num() == 0)
+	if (!OwnerCharacter || !CurrentWeapon)
 		return;
 
 

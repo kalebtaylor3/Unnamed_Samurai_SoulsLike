@@ -65,7 +65,25 @@ public:
 	UTexture2D* ButtonTexture;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	UTexture2D* KeyboardMouseButtonTexture;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	UTexture2D* XboxButtonTexture;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	UTexture2D* PlayStationButtonTexture;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	UPaperSprite* ButtonSprite;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	UPaperSprite* KeyboardMouseButtonSprite;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	UPaperSprite* XboxButtonSprite;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	UPaperSprite* PlayStationButtonSprite;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	FText ActionText = FText::FromString("Rest at Bonfire");

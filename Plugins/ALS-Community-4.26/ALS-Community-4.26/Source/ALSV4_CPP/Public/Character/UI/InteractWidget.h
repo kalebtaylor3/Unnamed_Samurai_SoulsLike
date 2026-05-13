@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Character/UI/InteractionInputTypes.h"
 #include "InteractWidget.generated.h"
 
 
@@ -25,13 +26,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Interaction")
 	void SetButtonImage(UTexture2D* NewTexture);
 
+	UFUNCTION(BlueprintCallable, Category = "Interaction")
+	void SetButtonImages(UTexture2D* KeyboardMouseTexture, UTexture2D* XboxTexture, UTexture2D* PlayStationTexture);
+
 	/** Sets the button image from a Paper2D sprite */
 	UFUNCTION(BlueprintCallable, Category = "Interaction")
 	void SetButtonSprite(UPaperSprite* NewSprite);
 
+	UFUNCTION(BlueprintCallable, Category = "Interaction")
+	void SetButtonSprites(UPaperSprite* KeyboardMouseSprite, UPaperSprite* XboxSprite, UPaperSprite* PlayStationSprite);
+
 protected:
 	// Called when widget is constructed
 	virtual void NativeConstruct() override;
+
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 	/** Text displaying the action (e.g., "Press to Rest") */
 	UPROPERTY(meta = (BindWidget))
@@ -40,4 +49,27 @@ protected:
 	/** Image showing the button to press */
 	UPROPERTY(meta = (BindWidget))
 	UImage* ButtonImage;
+
+private:
+	UPROPERTY()
+	UTexture2D* KeyboardMouseButtonTexture = nullptr;
+
+	UPROPERTY()
+	UTexture2D* XboxButtonTexture = nullptr;
+
+	UPROPERTY()
+	UTexture2D* PlayStationButtonTexture = nullptr;
+
+	UPROPERTY()
+	UPaperSprite* KeyboardMouseButtonSprite = nullptr;
+
+	UPROPERTY()
+	UPaperSprite* XboxButtonSprite = nullptr;
+
+	UPROPERTY()
+	UPaperSprite* PlayStationButtonSprite = nullptr;
+
+	EInteractionInputType LastInputType = EInteractionInputType::KeyboardMouse;
+
+	void RefreshButtonImage();
 };

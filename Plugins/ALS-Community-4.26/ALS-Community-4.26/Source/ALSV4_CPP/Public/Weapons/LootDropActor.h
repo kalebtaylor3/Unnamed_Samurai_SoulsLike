@@ -73,9 +73,27 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
 	UTexture2D* ActionIcon;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+	UTexture2D* KeyboardMouseActionIcon;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+	UTexture2D* XboxActionIcon;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+	UTexture2D* PlayStationActionIcon;
+
 	/** Sprite to display on the button when using a sprite sheet */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
 	UPaperSprite* ActionSprite;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+	UPaperSprite* KeyboardMouseActionSprite;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+	UPaperSprite* XboxActionSprite;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+	UPaperSprite* PlayStationActionSprite;
 
 	UFUNCTION(BlueprintCallable)
 	void GiveLootToPlayer(class AALSBaseCharacter* Player);

@@ -63,13 +63,19 @@ void ABonfire::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Other
 			if (UInteractWidget* InteractUI = Cast<UInteractWidget>(RawWidget))
 			{
 				InteractUI->SetActionText(ActionText);
-				if (ButtonSprite)
+				if (KeyboardMouseButtonSprite || XboxButtonSprite || PlayStationButtonSprite || ButtonSprite)
 				{
-					InteractUI->SetButtonSprite(ButtonSprite);
+					InteractUI->SetButtonSprites(
+						KeyboardMouseButtonSprite ? KeyboardMouseButtonSprite : ButtonSprite,
+						XboxButtonSprite ? XboxButtonSprite : ButtonSprite,
+						PlayStationButtonSprite ? PlayStationButtonSprite : ButtonSprite);
 				}
 				else
 				{
-					InteractUI->SetButtonImage(ButtonTexture);
+					InteractUI->SetButtonImages(
+						KeyboardMouseButtonTexture ? KeyboardMouseButtonTexture : ButtonTexture,
+						XboxButtonTexture ? XboxButtonTexture : ButtonTexture,
+						PlayStationButtonTexture ? PlayStationButtonTexture : ButtonTexture);
 				}
 			}
 		}

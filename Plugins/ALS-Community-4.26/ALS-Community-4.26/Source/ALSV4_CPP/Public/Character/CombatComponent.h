@@ -33,6 +33,7 @@ public:
 	void OnAttackEnded();
 	void SetCheckingForStanceChange(bool value);
 	void SetStance();
+	void EnableStanceChange();
 
 	bool bIsAttacking = false;
 	bool canRoll = true;
@@ -47,6 +48,7 @@ public:
 	bool bIsChargingHeavy = false;
 	bool bIsHoldingCharge = false;
 	bool bIsLoopingCharge = false;
+	bool bCanChangeStance = true;
 	bool bCanReceiveInput = true;
 	bool bInputQueuedThisWindow = false;
 	TQueue<int32> QueuedComboIndices;
@@ -72,6 +74,8 @@ private:
 	bool bHasJumpedToLoop = false;
 
 	FTimerHandle ChargeLoopTimer;
+	FTimerHandle StanceChangeCooldownTimer;
 
+	void PlayChargeLoopMontage();
 	void PlayLightAttackMontage(int32 Index, const TArray<UAnimMontage*>& MontageList);
 };

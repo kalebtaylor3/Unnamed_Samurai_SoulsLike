@@ -81,13 +81,19 @@ void ALootDropActor::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AA
 			if (UInteractWidget* InteractUI = Cast<UInteractWidget>(RawWidget))
 			{
 				InteractUI->SetActionText(ActionText);
-				if (ActionSprite)
+				if (KeyboardMouseActionSprite || XboxActionSprite || PlayStationActionSprite || ActionSprite)
 				{
-					InteractUI->SetButtonSprite(ActionSprite);
+					InteractUI->SetButtonSprites(
+						KeyboardMouseActionSprite ? KeyboardMouseActionSprite : ActionSprite,
+						XboxActionSprite ? XboxActionSprite : ActionSprite,
+						PlayStationActionSprite ? PlayStationActionSprite : ActionSprite);
 				}
 				else
 				{
-					InteractUI->SetButtonImage(ActionIcon); // Your preloaded UTexture2D*
+					InteractUI->SetButtonImages(
+						KeyboardMouseActionIcon ? KeyboardMouseActionIcon : ActionIcon,
+						XboxActionIcon ? XboxActionIcon : ActionIcon,
+						PlayStationActionIcon ? PlayStationActionIcon : ActionIcon);
 				}
 			}
 		}

@@ -6,6 +6,7 @@
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "InputCoreTypes.h"
 #include "InputMappingContext.h"
 #include "Engine/LocalPlayer.h"
 #include "AI/ALSAIController.h"
@@ -73,6 +74,29 @@ void AALSPlayerController::SetupInputComponent()
 	}
 }
 
+bool AALSPlayerController::InputKey(const FInputKeyEventArgs& Params)
+{
+	const bool bHandled = Super::InputKey(Params);
+	const FKey Key = Params.Key;
+
+	EInteractionInputType NewInputType = EInteractionInputType::KeyboardMouse;
+	if (Key.IsGamepadKey())
+	{
+		const FString KeyName = Key.GetFName().ToString();
+		const bool bIsPlayStationKey =
+			KeyName.Contains(TEXT("PlayStation")) ||
+			KeyName.Contains(TEXT("PS4")) ||
+			KeyName.Contains(TEXT("PS5")) ||
+			KeyName.Contains(TEXT("DualShock")) ||
+			KeyName.Contains(TEXT("DualSense"));
+
+		NewInputType = bIsPlayStationKey ? EInteractionInputType::PlayStationGamepad : EInteractionInputType::XboxGamepad;
+	}
+
+	CurrentInteractionInputType = NewInputType;
+	return bHandled;
+}
+
 void AALSPlayerController::BindActions(UInputMappingContext* Context, TSet<const UInputAction*>& BoundActions)
 {
 	if (Context)
@@ -89,7 +113,22 @@ void AALSPlayerController::BindActions(UInputMappingContext* Context, TSet<const
 				}
 
 				BoundActions.Add(Keymapping.Action);
-				EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Triggered, Cast<UObject>(this), Keymapping.Action->GetFName());
+				if (Keymapping.Action->GetFName() == GET_FUNCTION_NAME_CHECKED(AALSPlayerController, HeavyAttackAction))
+				{
+					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Started, this, &AALSPlayerController::HeavyAttackStartedAction);
+					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Completed, this, &AALSPlayerController::HeavyAttackReleasedAction);
+					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Canceled, this, &AALSPlayerController::HeavyAttackReleasedAction);
+				}
+				else if (Keymapping.Action->GetFName() == GET_FUNCTION_NAME_CHECKED(AALSPlayerController, CheckForStanceChangeAction))
+				{
+					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Started, this, &AALSPlayerController::CheckForStanceChangeStartedAction);
+					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Completed, this, &AALSPlayerController::CheckForStanceChangeReleasedAction);
+					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Canceled, this, &AALSPlayerController::CheckForStanceChangeReleasedAction);
+				}
+				else
+				{
+					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Triggered, Cast<UObject>(this), Keymapping.Action->GetFName());
+				}
 			}
 		}
 	}
@@ -306,6 +345,18 @@ void AALSPlayerController::StanceChangeAction(const FInputActionValue& Value)
 
 void AALSPlayerController::CheckForStanceChangeAction(const FInputActionValue& Value)
 {
+	if (Value.Get<bool>())
+	{
+		CheckForStanceChangeStartedAction(Value);
+	}
+	else
+	{
+		CheckForStanceChangeReleasedAction(Value);
+	}
+}
+
+void AALSPlayerController::CheckForStanceChangeStartedAction(const FInputActionValue& Value)
+{
 	if (ShouldIgnoreGameplayInput())
 		return;
 
@@ -314,7 +365,18 @@ void AALSPlayerController::CheckForStanceChangeAction(const FInputActionValue& V
 
 	if (PossessedCharacter)
 	{
-		PossessedCharacter->CombatSystem->SetCheckingForStanceChange(Value.Get<bool>());
+		PossessedCharacter->CombatSystem->SetCheckingForStanceChange(true);
+	}
+}
+
+void AALSPlayerController::CheckForStanceChangeReleasedAction(const FInputActionValue& Value)
+{
+	if (!PossessedCharacter)
+		return;
+
+	if (PossessedCharacter->CombatSystem)
+	{
+		PossessedCharacter->CombatSystem->SetCheckingForStanceChange(false);
 	}
 }
 
@@ -365,6 +427,18 @@ void AALSPlayerController::AshOfWarAction(const FInputActionValue& Value)
 
 void AALSPlayerController::HeavyAttackAction(const FInputActionValue& Value)
 {
+	if (Value.Get<bool>())
+	{
+		HeavyAttackStartedAction(Value);
+	}
+	else
+	{
+		HeavyAttackReleasedAction(Value);
+	}
+}
+
+void AALSPlayerController::HeavyAttackStartedAction(const FInputActionValue& Value)
+{
 	if (ShouldIgnoreGameplayInput())
 		return;
 
@@ -373,7 +447,21 @@ void AALSPlayerController::HeavyAttackAction(const FInputActionValue& Value)
 
 	if (PossessedCharacter)
 	{
-		PossessedCharacter->CombatSystem->HeavyAttackCheck(Value.Get<bool>());
+		PossessedCharacter->CombatSystem->StartChargeHeavyAttack();
+	}
+}
+
+void AALSPlayerController::HeavyAttackReleasedAction(const FInputActionValue& Value)
+{
+	if (ShouldIgnoreGameplayInput())
+		return;
+
+	if (PossessedCharacter->bIsResting)
+		return;
+
+	if (PossessedCharacter)
+	{
+		PossessedCharacter->CombatSystem->ReleaseChargeHeavyAttack();
 	}
 }
 
@@ -425,6 +513,9 @@ void AALSPlayerController::AimAction(const FInputActionValue& Value)
 		return;
 
 	if (PossessedCharacter->bIsResting)
+		return;
+
+	if (PossessedCharacter->CombatSystem && PossessedCharacter->CombatSystem->checkingForStanceChange)
 		return;
 
 	if (PossessedCharacter)
