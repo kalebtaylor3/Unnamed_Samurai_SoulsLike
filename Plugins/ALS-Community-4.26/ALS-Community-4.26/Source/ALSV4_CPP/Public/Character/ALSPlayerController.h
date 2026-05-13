@@ -61,6 +61,12 @@ protected:
 	void JumpAction(const FInputActionValue& Value);
 
 	UFUNCTION()
+	void JumpStartedAction(const FInputActionValue& Value);
+
+	UFUNCTION()
+	void JumpReleasedAction(const FInputActionValue& Value);
+
+	UFUNCTION()
 	void InteractAction(const FInputActionValue& Value);
 
 	UFUNCTION()

@@ -313,6 +313,18 @@ void UALSCharacterAnimInstance::UpdateLayerValues()
 	LayerBlendingValues.Arm_L_MS = static_cast<float>(1 - FMath::FloorToInt(LayerBlendingValues.Arm_L_LS));
 	LayerBlendingValues.Arm_R_LS = GetCurveValue(NAME_Layering_Arm_R_LS);
 	LayerBlendingValues.Arm_R_MS = static_cast<float>(1 - FMath::FloorToInt(LayerBlendingValues.Arm_R_LS));
+
+	if (MovementState.InAir())
+	{
+		LayerBlendingValues.Arm_L = 0.0f;
+		LayerBlendingValues.Arm_R = 0.0f;
+		LayerBlendingValues.Arm_L_Add = 0.0f;
+		LayerBlendingValues.Arm_R_Add = 0.0f;
+		LayerBlendingValues.Hand_L = 0.0f;
+		LayerBlendingValues.Hand_R = 0.0f;
+		LayerBlendingValues.EnableHandIK_L = 0.0f;
+		LayerBlendingValues.EnableHandIK_R = 0.0f;
+	}
 }
 
 void UALSCharacterAnimInstance::UpdateFootIK(float DeltaSeconds)

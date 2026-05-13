@@ -113,7 +113,13 @@ void AALSPlayerController::BindActions(UInputMappingContext* Context, TSet<const
 				}
 
 				BoundActions.Add(Keymapping.Action);
-				if (Keymapping.Action->GetFName() == GET_FUNCTION_NAME_CHECKED(AALSPlayerController, HeavyAttackAction))
+				if (Keymapping.Action->GetFName() == GET_FUNCTION_NAME_CHECKED(AALSPlayerController, JumpAction))
+				{
+					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Started, this, &AALSPlayerController::JumpStartedAction);
+					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Completed, this, &AALSPlayerController::JumpReleasedAction);
+					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Canceled, this, &AALSPlayerController::JumpReleasedAction);
+				}
+				else if (Keymapping.Action->GetFName() == GET_FUNCTION_NAME_CHECKED(AALSPlayerController, HeavyAttackAction))
 				{
 					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Started, this, &AALSPlayerController::HeavyAttackStartedAction);
 					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Completed, this, &AALSPlayerController::HeavyAttackReleasedAction);
@@ -313,6 +319,18 @@ void AALSPlayerController::CameraRightAction(const FInputActionValue& Value)
 
 void AALSPlayerController::JumpAction(const FInputActionValue& Value)
 {
+	if (Value.Get<bool>())
+	{
+		JumpStartedAction(Value);
+	}
+	else
+	{
+		JumpReleasedAction(Value);
+	}
+}
+
+void AALSPlayerController::JumpStartedAction(const FInputActionValue& Value)
+{
 	if (ShouldIgnoreGameplayInput())
 		return;
 
@@ -338,8 +356,19 @@ void AALSPlayerController::JumpAction(const FInputActionValue& Value)
 	}
 	if (PossessedCharacter)
 	{
-		PossessedCharacter->JumpAction(Value.Get<bool>());
+		PossessedCharacter->JumpAction(true);
 	}
+}
+
+void AALSPlayerController::JumpReleasedAction(const FInputActionValue& Value)
+{
+	if (!PossessedCharacter)
+		return;
+
+	if (PossessedCharacter->bIsResting)
+		return;
+
+	PossessedCharacter->JumpAction(false);
 }
 
 void AALSPlayerController::InteractAction(const FInputActionValue& Value)
