@@ -29,6 +29,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	float AttackRange = 250.0f; // Elden Ring-like melee range
 
+	UPROPERTY(EditAnywhere, Category = "Settings")
+	float AttackRangeExitBuffer = 100.0f;
+
 	UPROPERTY(EditAnywhere, Category = "Leash")
 	float LeashRadius = 1500.f;
 };

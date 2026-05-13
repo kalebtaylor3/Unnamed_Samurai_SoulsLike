@@ -54,8 +54,10 @@ void UBTService_CheckIfInRange::TickNode(UBehaviorTreeComponent& OwnerComp, uint
 		}
 	}
 
-	// Set attack range key
-	const bool bInRange = DistanceToTarget <= AttackRange;
+	// Use a small buffer so the AI does not rapidly swap between chase and attack at the edge of range.
+	const bool bWasInRange = Blackboard->GetValueAsBool(IsInRangeKey.SelectedKeyName);
+	const float RangeToUse = bWasInRange ? AttackRange + AttackRangeExitBuffer : AttackRange;
+	const bool bInRange = DistanceToTarget <= RangeToUse;
 	Blackboard->SetValueAsBool(IsInRangeKey.SelectedKeyName, bInRange);
 }
 
