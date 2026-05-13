@@ -7,6 +7,7 @@
 #include "AIController.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Character/ALSBaseCharacter.h"
+#include "Character/ALSPlayerCameraManager.h"
 #include "Blueprint/UserWidget.h"
 
 UEnemyHealthComponent::UEnemyHealthComponent()
@@ -118,6 +119,15 @@ void UEnemyHealthComponent::ClearLockOnIfTargetDies()
 				if (CamManager->LockedTarget == GetOwner())
 				{
 					CamManager->TargetLock(); // forcibly toggles OFF
+
+					FTimerHandle RetargetHandle;
+					GetWorld()->GetTimerManager().SetTimer(RetargetHandle, [CamManager]()
+						{
+							if (CamManager && !CamManager->bIsTargetLocked)
+							{
+								CamManager->TargetLock();
+							}
+						}, 0.05f, false);
 				}
 			}
 		}

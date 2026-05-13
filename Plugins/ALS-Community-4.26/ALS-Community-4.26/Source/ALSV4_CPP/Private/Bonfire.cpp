@@ -110,7 +110,7 @@ void ABonfire::OpenLevelUpUI(ACharacter* PlayerCharacter)
 		if (BonfireMenuWidget)
 		{
 			BonfireMenuWidget->AddToViewport();
-			BonfireMenuWidget->HighlightOption(0);
+			BonfireMenuWidget->OpenMainMenu();
 			BonfireMenuWidget->SetBonfireLocationName(LocationName);
 
 			if (AALSBaseCharacter* ALSChar = Cast<AALSBaseCharacter>(PlayerCharacter))

@@ -168,6 +168,68 @@ bool AALSPlayerController::ShouldIgnoreGameplayInput() const
 	return !PossessedCharacter || (PossessedCharacter->Inventory && PossessedCharacter->Inventory->bHealing);
 }
 
+void AALSPlayerController::HandleBonfireVerticalNavigation(float AxisValue)
+{
+	if (!PossessedCharacter || !PossessedCharacter->CurrentBonfireMenu)
+		return;
+
+	if (FMath::Abs(AxisValue) < 0.5f)
+	{
+		bCanBonfireVerticalNavigate = true;
+		return;
+	}
+
+	if (!bCanBonfireVerticalNavigate)
+		return;
+
+	bCanBonfireVerticalNavigate = false;
+	GetWorldTimerManager().SetTimer(BonfireVerticalNavigationTimer, this, &AALSPlayerController::EnableBonfireVerticalNavigation, 0.18f, false);
+
+	const int32 Direction = AxisValue > 0.f ? 0 : 1;
+	if (PossessedCharacter->CurrentBonfireMenu->isLevelMenuOpen)
+	{
+		PossessedCharacter->BonfireSkillsNavigate(Direction);
+	}
+	else
+	{
+		PossessedCharacter->BonfireMenuNavigate(Direction);
+	}
+}
+
+void AALSPlayerController::HandleBonfireHorizontalNavigation(float AxisValue)
+{
+	if (!PossessedCharacter || !PossessedCharacter->CurrentBonfireMenu)
+		return;
+
+	if (FMath::Abs(AxisValue) < 0.5f)
+	{
+		bCanBonfireHorizontalNavigate = true;
+		return;
+	}
+
+	if (!bCanBonfireHorizontalNavigate)
+		return;
+
+	bCanBonfireHorizontalNavigate = false;
+	GetWorldTimerManager().SetTimer(BonfireHorizontalNavigationTimer, this, &AALSPlayerController::EnableBonfireHorizontalNavigation, 0.18f, false);
+
+	if (PossessedCharacter->CurrentBonfireMenu->isLevelMenuOpen)
+	{
+		const int32 Direction = AxisValue > 0.f ? 1 : -1;
+		PossessedCharacter->BonfireSkillIncreaseNavigate(Direction);
+	}
+}
+
+void AALSPlayerController::EnableBonfireVerticalNavigation()
+{
+	bCanBonfireVerticalNavigate = true;
+}
+
+void AALSPlayerController::EnableBonfireHorizontalNavigation()
+{
+	bCanBonfireHorizontalNavigate = true;
+}
+
 void AALSPlayerController::ForwardMovementAction(const FInputActionValue& Value)
 {
 	if (ShouldIgnoreGameplayInput())
@@ -177,7 +239,10 @@ void AALSPlayerController::ForwardMovementAction(const FInputActionValue& Value)
 		return;
 
 	if (PossessedCharacter->bIsResting)
+	{
+		HandleBonfireVerticalNavigation(Value.Get<float>());
 		return;
+	}
 
 	if (PossessedCharacter)
 	{
@@ -194,7 +259,10 @@ void AALSPlayerController::RightMovementAction(const FInputActionValue& Value)
 		return;
 
 	if (PossessedCharacter->bIsResting)
+	{
+		HandleBonfireHorizontalNavigation(Value.Get<float>());
 		return;
+	}
 
 	if (PossessedCharacter)
 	{
@@ -204,6 +272,12 @@ void AALSPlayerController::RightMovementAction(const FInputActionValue& Value)
 
 void AALSPlayerController::CameraUpAction(const FInputActionValue& Value)
 {
+	if (PossessedCharacter && PossessedCharacter->bIsResting)
+	{
+		HandleBonfireVerticalNavigation(Value.Get<float>());
+		return;
+	}
+
 	if (PossessedCharacter && PossessedCharacter->Inventory && PossessedCharacter->Inventory->bIsInventoryOpen)
 		return;
 
@@ -216,6 +290,12 @@ void AALSPlayerController::CameraUpAction(const FInputActionValue& Value)
 void AALSPlayerController::CameraRightAction(const FInputActionValue& Value)
 {
 	const float AxisValue = Value.Get<float>();
+
+	if (PossessedCharacter && PossessedCharacter->bIsResting)
+	{
+		HandleBonfireHorizontalNavigation(AxisValue);
+		return;
+	}
 
 	if (PossessedCharacter && PossessedCharacter->Inventory && PossessedCharacter->Inventory->bIsInventoryOpen)
 		return;

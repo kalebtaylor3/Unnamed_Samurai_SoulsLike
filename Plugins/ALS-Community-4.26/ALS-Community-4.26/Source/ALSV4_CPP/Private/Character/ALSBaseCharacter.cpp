@@ -10,6 +10,7 @@
 #include "Library/ALSMathLibrary.h"
 #include "Components/ALSDebugComponent.h"
 
+#include "Animation/AnimInstance.h"
 #include "Components/CapsuleComponent.h"
 #include "Curves/CurveFloat.h"
 #include "Character/UI/BonfireMenuWidget.h"
@@ -399,8 +400,17 @@ void AALSBaseCharacter::PlayBonfireSitAnimation(ABonfire* Bonfire)
 	FTimerHandle SitFinishTimer;
 	GetWorldTimerManager().SetTimer(SitFinishTimer, [this, Bonfire]()
 		{
-			// Play idle sit loop (set to looping in the Montage asset itself)
-			PlayAnimMontage(SitLoopMontage);
+			// Force the first montage section to loop back to itself.
+			if (UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+			{
+				AnimInstance->Montage_Play(SitLoopMontage);
+
+				if (SitLoopMontage->CompositeSections.Num() > 0)
+				{
+					const FName LoopSectionName = SitLoopMontage->CompositeSections[0].SectionName;
+					AnimInstance->Montage_SetNextSection(LoopSectionName, LoopSectionName, SitLoopMontage);
+				}
+			}
 
 			// Then show the UI
 			Bonfire->OpenLevelUpUI(this);

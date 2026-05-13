@@ -40,6 +40,11 @@ protected:
 
 	bool ShouldIgnoreGameplayInput() const;
 
+	void HandleBonfireVerticalNavigation(float AxisValue);
+	void HandleBonfireHorizontalNavigation(float AxisValue);
+	void EnableBonfireVerticalNavigation();
+	void EnableBonfireHorizontalNavigation();
+
 	UFUNCTION()
 	void ForwardMovementAction(const FInputActionValue& Value);
 
@@ -172,6 +177,14 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "ALS|Input")
 	EInteractionInputType CurrentInteractionInputType = EInteractionInputType::KeyboardMouse;
 
+private:
+	bool bCanBonfireVerticalNavigate = true;
+	bool bCanBonfireHorizontalNavigate = true;
+
+	FTimerHandle BonfireVerticalNavigationTimer;
+	FTimerHandle BonfireHorizontalNavigationTimer;
+
+public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "ALS|Input")
 	TObjectPtr<UInputMappingContext> DefaultInputMappingContext = nullptr;
 

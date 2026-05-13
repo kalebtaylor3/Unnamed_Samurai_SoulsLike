@@ -5,6 +5,37 @@
 #include "Character/ALSBaseCharacter.h"
 #include "Components/Border.h"
 
+void UBonfireMenuWidget::NativeConstruct()
+{
+	Super::NativeConstruct();
+	OpenMainMenu();
+}
+
+void UBonfireMenuWidget::OpenMainMenu()
+{
+	SetVisibility(ESlateVisibility::Visible);
+
+	if (UWidget* RootWidget = GetRootWidget())
+	{
+		RootWidget->SetVisibility(ESlateVisibility::Visible);
+	}
+
+	if (BonfirePanel)
+	{
+		BonfirePanel->SetVisibility(ESlateVisibility::Visible);
+	}
+
+	if (LevelUpPanel)
+	{
+		LevelUpPanel->SetVisibility(ESlateVisibility::Hidden);
+	}
+
+	isLevelMenuOpen = false;
+	CurrentIndex = 0;
+	ClearOption(1);
+	HighlightOption(CurrentIndex);
+}
+
 void UBonfireMenuWidget::Navigate(int32 Direction)
 {
 	if (isLevelMenuOpen)

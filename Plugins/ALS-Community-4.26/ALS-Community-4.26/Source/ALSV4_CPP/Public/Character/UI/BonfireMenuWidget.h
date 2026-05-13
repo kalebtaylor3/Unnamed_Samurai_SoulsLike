@@ -38,8 +38,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void SetBonfireLocationName(FText NewLocationName);
 
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void OpenMainMenu();
+
 
 protected:
+	virtual void NativeConstruct() override;
+
 	UPROPERTY(meta = (BindWidget))
 	UBorder* OptionBorder0;
 
