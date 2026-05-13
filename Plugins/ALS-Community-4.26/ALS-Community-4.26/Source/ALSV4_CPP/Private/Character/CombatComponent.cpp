@@ -93,7 +93,10 @@ void UCombatComponent::LightAttack()
 		return;
 
 	if (OwnerCharacter->PlayerStats->CurrentStamina < CurrentWeapon->LightAttackStaminaAmount)
+	{
+		OwnerCharacter->PlayerStats->NotifyStaminaExhausted();
 		return;
+	}
 
 	if (!OwnerCharacter)
 	{
@@ -104,7 +107,10 @@ void UCombatComponent::LightAttack()
 	{
 
 		if (OwnerCharacter->PlayerStats->CurrentStamina < CurrentWeapon->JumpAttackStaminaAmount)
+		{
+			OwnerCharacter->PlayerStats->NotifyStaminaExhausted();
 			return;
+		}
 
 		if (bIsAttacking)
 			return;
@@ -112,6 +118,8 @@ void UCombatComponent::LightAttack()
 		UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance();
 		if (AnimInstance)
 		{
+			AnimInstance->SetRootMotionMode(ERootMotionMode::RootMotionFromMontagesOnly);
+
 			if (CurrentStance == ECombatStance::OneHanded)
 				AnimInstance->Montage_Play(CurrentWeapon->OneHJumpAttackMontage); //AnimInstance->Montage_Play(OneHJumpAttackLightAttackMontage);
 			else if (CurrentStance == ECombatStance::TwoHanded)
@@ -191,6 +199,7 @@ void UCombatComponent::PlayLightAttackMontage(int32 Index, const TArray<UAnimMon
 				}
 			}
 
+			AnimInstance->SetRootMotionMode(ERootMotionMode::RootMotionFromMontagesOnly);
 			AnimInstance->Montage_Play(MontageToPlay);
 			GetWorld()->GetTimerManager().ClearTimer(OwnerCharacter->PlayerStats->StaminaRegenHandle);
 			OwnerCharacter->PlayerStats->UseStamina(CurrentWeapon->LightAttackStaminaAmount);
@@ -204,7 +213,10 @@ void UCombatComponent::StartChargeHeavyAttack()
 		return;
 
 	if (OwnerCharacter->PlayerStats->CurrentStamina < CurrentWeapon->HeavyAttackStaminaAmount)
+	{
+		OwnerCharacter->PlayerStats->NotifyStaminaExhausted();
 		return;
+	}
 
 	if (checkingForStanceChange)
 		return;
@@ -250,6 +262,7 @@ void UCombatComponent::ReleaseChargeHeavyAttack()
 	if (AnimInstance)
 	{
 		AnimInstance->Montage_Stop(0.f, CurrentWeapon->ChargeMontage);
+		AnimInstance->SetRootMotionMode(ERootMotionMode::RootMotionFromMontagesOnly);
 		AnimInstance->Montage_Play(CurrentWeapon->HeavyAttackMontage);
 	}
 }

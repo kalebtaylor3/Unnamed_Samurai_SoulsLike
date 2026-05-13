@@ -109,6 +109,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void UseStamina(float Amount);
 
+	UFUNCTION(BlueprintCallable)
+	void NotifyStaminaExhausted();
+
 	UPROPERTY(BlueprintReadWrite, Category = "Regen")
 	bool bCanRegenStamina = true;
 

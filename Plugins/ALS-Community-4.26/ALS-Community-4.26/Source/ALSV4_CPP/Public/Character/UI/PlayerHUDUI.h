@@ -60,6 +60,12 @@ public:
 	void SetStats(float CurrentHealth, float MaxHealth, float CurrentFP, float MaxFP, float CurrentStamina, float MaxStamina, int32 CurrentLevel, int32 MaxLevel);
 
 	UFUNCTION(BlueprintCallable)
+	void PlayStaminaDeniedFeedback();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stamina Feedback")
+	FLinearColor DeniedStaminaBarBackgroundTint = FLinearColor(1.0f, 0.08f, 0.02f, 1.0f);
+
+	UFUNCTION(BlueprintCallable)
 	void UpdateInventorySlot(int32 SlotIndex, UTexture2D* Icon);
 
 	UFUNCTION(BlueprintCallable)
@@ -132,6 +138,11 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	UProgressBar* StaminaBar;
+
+	FTimerHandle StaminaDeniedFeedbackHandle;
+	int32 StaminaDeniedFeedbackStep = 0;
+	bool bCachedStaminaBarStyle = false;
+	FProgressBarStyle CachedStaminaBarStyle;
 
 	FLinearColor DefaultSlotColor = FLinearColor::White;
 	FLinearColor HighlightedSlotColor = FLinearColor::Yellow;

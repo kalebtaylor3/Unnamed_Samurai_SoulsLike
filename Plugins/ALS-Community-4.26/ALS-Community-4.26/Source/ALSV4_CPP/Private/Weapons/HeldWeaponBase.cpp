@@ -60,17 +60,33 @@ void AHeldWeaponBase::OnDamageHitboxOverlap(UPrimitiveComponent* OverlappedCompo
 		// === Spawn hit particle ===
 		if (HitEffect)
 		{
-			FVector EffectScale = FVector(1.3f); // You can change this to whatever scale you want
-			FVector BoxCenter = DamageHitbox->GetComponentLocation();
-			FVector ToEnemy = OtherActor->GetActorLocation() - BoxCenter;
-			FVector ToEnemyDir = ToEnemy.GetSafeNormal();
+			const FVector EffectScale = FVector(1.3f);
+			const FVector WeaponHitboxLocation = DamageHitbox->GetComponentLocation();
 
-			BoxCenter += ToEnemyDir * 50.f; // Move 20 units closer *to the enemy*
+			FVector HitLocation = SweepResult.ImpactPoint;
+			if (!bFromSweep || HitLocation.IsNearlyZero())
+			{
+				HitLocation = OtherActor->GetActorLocation();
 
-			FRotator EffectRotation = ToEnemy.Rotation();  // Face toward the enemy
+				if (OtherComp)
+				{
+					FVector ClosestPoint = FVector::ZeroVector;
+					if (OtherComp->GetClosestPointOnCollision(WeaponHitboxLocation, ClosestPoint) > 0.f)
+					{
+						HitLocation = ClosestPoint;
+					}
+				}
+			}
+
+			const FVector HitDirection = (HitLocation - WeaponHitboxLocation).GetSafeNormal();
+			HitLocation += HitDirection * 18.f + FVector::UpVector * 8.f;
+
+			FRotator EffectRotation = HitDirection.Rotation();
 			EffectRotation.Pitch += 180.f; // Flip to face away from enemy
+			EffectRotation.Yaw += FMath::RandBool() ? FMath::RandRange(18.f, 32.f) : FMath::RandRange(-32.f, -18.f);
+			EffectRotation.Roll += FMath::RandRange(-12.f, 12.f);
 
-			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitEffect, BoxCenter, EffectRotation, EffectScale);
+			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitEffect, HitLocation, EffectRotation, EffectScale);
 		}
 
 		// === Hitstop ===

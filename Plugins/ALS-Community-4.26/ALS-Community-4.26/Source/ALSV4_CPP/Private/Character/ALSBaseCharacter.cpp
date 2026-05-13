@@ -1509,6 +1509,12 @@ void AALSBaseCharacter::JumpAction_Implementation(bool bValue)
 			{
 				if (Stance == EALSStance::Standing)
 				{
+					if (PlayerStats && PlayerStats->CurrentStamina < 10.f)
+					{
+						PlayerStats->NotifyStaminaExhausted();
+						return;
+					}
+
 					Jump();
 					PlayerStats->UseStamina(10);
 				}
@@ -1565,6 +1571,7 @@ void AALSBaseCharacter::SprintAction_Implementation(bool bValue)
 		}
 		else
 		{
+			PlayerStats->NotifyStaminaExhausted();
 			bSprintHeld = false;
 			SetDesiredGait(EALSGait::Running);
 			PlayerStats->bCanRegenStamina = true;
@@ -1646,7 +1653,10 @@ void AALSBaseCharacter::RollAction_Implementation()
 		return;
 
 	if (PlayerStats && PlayerStats->CurrentStamina < 25.f)
+	{
+		PlayerStats->NotifyStaminaExhausted();
 		return;
+	}
 
 	GetMesh()->GetAnimInstance()->SetRootMotionMode(ERootMotionMode::NoRootMotionExtraction);
 
@@ -1824,6 +1834,13 @@ void AALSBaseCharacter::NavigateInventory(int32 Direction)
 	const int32 BackpackEnd = 9;
 
 	int32 PrevIndex = InventoryNavIndex;
+	const bool bHasVisibleNavHighlight = PlayerHUDWidget->CurrentSwapSlot != -1;
+
+	if (!bHasVisibleNavHighlight)
+	{
+		PlayerHUDWidget->HighlightSlot(InventoryNavIndex);
+		return;
+	}
 
 	switch (Direction)
 	{
@@ -1874,7 +1891,7 @@ void AALSBaseCharacter::NavigateInventory(int32 Direction)
 		break;
 	}
 
-	// Update highlight
+	// Update highlight when navigation moves.
 	if (PrevIndex != InventoryNavIndex)
 	{
 		if (PlayerHUDWidget)
@@ -1943,7 +1960,8 @@ void AALSBaseCharacter::ToggleInventory()
 
 	if (Inventory->bIsInventoryOpen)
 	{
-		PlayerHUDWidget->HighlightSlot(InventoryNavIndex);
+		InventoryNavIndex = 100;
+		PlayerHUDWidget->ClearAllHighlights();
 	}
 	else
 	{

@@ -294,6 +294,48 @@ void UPlayerHUDUI::SetStats(float CurrentHealth, float MaxHealth, float CurrentF
 	StaminaBar->SetRenderTransformPivot(FVector2D(0.0f, 0.5f));
 }
 
+void UPlayerHUDUI::PlayStaminaDeniedFeedback()
+{
+	if (!StaminaBar || !GetWorld())
+	{
+		return;
+	}
+
+	GetWorld()->GetTimerManager().ClearTimer(StaminaDeniedFeedbackHandle);
+	StaminaDeniedFeedbackStep = 0;
+
+	if (!bCachedStaminaBarStyle)
+	{
+		CachedStaminaBarStyle = StaminaBar->WidgetStyle;
+		bCachedStaminaBarStyle = true;
+	}
+
+	FProgressBarStyle DeniedStyle = CachedStaminaBarStyle;
+	DeniedStyle.BackgroundImage.TintColor = FSlateColor(DeniedStaminaBarBackgroundTint);
+	StaminaBar->SetWidgetStyle(DeniedStyle);
+
+	GetWorld()->GetTimerManager().SetTimer(StaminaDeniedFeedbackHandle, [this]()
+		{
+			if (!StaminaBar)
+			{
+				GetWorld()->GetTimerManager().ClearTimer(StaminaDeniedFeedbackHandle);
+				return;
+			}
+
+			constexpr int32 MaxSteps = 8;
+			const float ShakeOffset = (StaminaDeniedFeedbackStep % 2 == 0) ? 7.0f : -7.0f;
+			StaminaBar->SetRenderTranslation(FVector2D(ShakeOffset, 0.0f));
+
+			++StaminaDeniedFeedbackStep;
+			if (StaminaDeniedFeedbackStep >= MaxSteps)
+			{
+				StaminaBar->SetRenderTranslation(FVector2D::ZeroVector);
+				StaminaBar->SetWidgetStyle(CachedStaminaBarStyle);
+				GetWorld()->GetTimerManager().ClearTimer(StaminaDeniedFeedbackHandle);
+			}
+		}, 0.035f, true);
+}
+
 void UPlayerHUDUI::UpdateInventorySlot(int32 SlotIndex, UTexture2D* Icon)
 {
 	UImage* SlotImage = nullptr;

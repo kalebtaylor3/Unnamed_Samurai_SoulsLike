@@ -37,6 +37,11 @@ void UPlayerStatsComponent::UseFP(float Amount)
 
 void UPlayerStatsComponent::UseStamina(float Amount)
 {
+	if (CurrentStamina < Amount)
+	{
+		NotifyStaminaExhausted();
+	}
+
 	CurrentStamina = FMath::Clamp(CurrentStamina - Amount, 0.f, MaxStamina);
 	OnStatsChanged.Broadcast(CurrentHealth, MaxHealth, CurrentFP, MaxFP, CurrentStamina, MaxStamina, CurrentLevel, MaxLevel);
 
@@ -49,6 +54,17 @@ void UPlayerStatsComponent::UseStamina(float Amount)
 		{
 			RegenerateStamina(MaxStamina - CurrentStamina);
 		}, 1.5f, false);
+}
+
+void UPlayerStatsComponent::NotifyStaminaExhausted()
+{
+	if (AALSBaseCharacter* OwnerChar = Cast<AALSBaseCharacter>(GetOwner()))
+	{
+		if (OwnerChar->PlayerHUDWidget)
+		{
+			OwnerChar->PlayerHUDWidget->PlayStaminaDeniedFeedback();
+		}
+	}
 }
 
 void UPlayerStatsComponent::RegenerateStamina(float Amount)
