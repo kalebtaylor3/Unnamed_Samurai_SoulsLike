@@ -6,6 +6,7 @@
 #include "AI/EnemyHeldWeaponBase.h"
 #include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Library/ALSCharacterEnumLibrary.h"
 
 
 UEnemyCombatComponent::UEnemyCombatComponent()
@@ -87,6 +88,15 @@ void UEnemyCombatComponent::EnterState(EEnemyAIState NewState)
 	if (CurrentState != NewState)
 	{
 		CurrentState = NewState;
+
+		if (OwnerCharacter)
+		{
+			const EALSGait DesiredCombatGait = CurrentState == EEnemyAIState::Chasing
+				? EALSGait::Sprinting
+				: EALSGait::Running;
+
+			OwnerCharacter->SetDesiredGait(DesiredCombatGait);
+		}
 	}
 }
 
@@ -142,6 +152,7 @@ void UEnemyCombatComponent::PerformAttack()
 
 	bIsAttacking = true;
 	bComboOngoing = true;
+	EnterState(EEnemyAIState::Attacking);
 
 	UAnimMontage* SelectedMontage = AttackMontages[MontageIndex];
 	CurrentStamina -= RequiredStamina;
