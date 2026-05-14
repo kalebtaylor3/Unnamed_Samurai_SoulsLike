@@ -3,10 +3,14 @@
 #include "Animation/AnimInstance.h"
 #include "Character/ALSBaseCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/Character.h"
 #include "AI/EnemyHeldWeaponBase.h"
 #include "Components/BoxComponent.h"
+#include "Engine/OverlapResult.h"
+#include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "Library/ALSCharacterEnumLibrary.h"
+#include "Character/PlayerStatsComponent.h"
 
 
 UEnemyCombatComponent::UEnemyCombatComponent()
@@ -83,6 +87,7 @@ void UEnemyCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	}
 
 	TickManualLateralDodgeMovement(DeltaTime);
+	TickKickKnockback(DeltaTime);
 }
 
 void UEnemyCombatComponent::EnterState(EEnemyAIState NewState)
@@ -128,6 +133,20 @@ void UEnemyCombatComponent::PerformAttack()
 {
 	if (!OwnerCharacter || bIsAttacking || AttackMontages.Num() == 0 || CurrentStamina <= 0.f)
 		return;
+
+	if (!CanAttackCurrentTarget())
+	{
+		bComboOngoing = false;
+		ComboIndex = 0;
+		EnterState(EEnemyAIState::Chasing);
+
+		if (Blackboard)
+		{
+			Blackboard->SetValueAsBool("IsInAttackRange", false);
+		}
+
+		return;
+	}
 
 	FaceTargetOnce();
 
@@ -176,6 +195,33 @@ void UEnemyCombatComponent::PerformAttack()
 	ComboIndex++;
 }
 
+bool UEnemyCombatComponent::CanAttackCurrentTarget() const
+{
+	const AActor* Target = Blackboard ? Cast<AActor>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName)) : nullptr;
+	return CanAttackTarget(Target);
+}
+
+bool UEnemyCombatComponent::CanAttackTarget(const AActor* Target) const
+{
+	if (!OwnerCharacter || !Target)
+	{
+		return false;
+	}
+
+	return FVector::Dist2D(Target->GetActorLocation(), OwnerCharacter->GetActorLocation()) <= AttackRange;
+}
+
+bool UEnemyCombatComponent::CanKickCurrentTarget() const
+{
+	const AActor* Target = Blackboard ? Cast<AActor>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName)) : nullptr;
+	if (!OwnerCharacter || !Target || !KickMontage)
+	{
+		return false;
+	}
+
+	return FVector::Dist2D(Target->GetActorLocation(), OwnerCharacter->GetActorLocation()) <= KickRange;
+}
+
 void UEnemyCombatComponent::FaceTargetOnce()
 {
 	if (!OwnerCharacter || !Blackboard) return;
@@ -200,7 +246,7 @@ void UEnemyCombatComponent::ContinueCombo()
 
 	AActor* Target = Blackboard ? Cast<AActor>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName)) : nullptr;
 
-	const bool bInRange = Target && FVector::Dist2D(Target->GetActorLocation(), OwnerCharacter->GetActorLocation()) <= AttackRange;
+	const bool bInRange = CanAttackTarget(Target);
 
 	const float NextStaminaCost = ComboStaminaCosts.IsValidIndex(ComboIndex + 1) ? ComboStaminaCosts[ComboIndex + 1] : 999.f;
 
@@ -209,8 +255,13 @@ void UEnemyCombatComponent::ContinueCombo()
 		bComboOngoing = false;
 		ComboIndex = 0;
 		LastBetweenAttackDodgeTime = GetWorld()->GetTimeSeconds();
-		RequestDodge();
 
+		if (ShouldKickBetweenAttacks(Target) && TryPlayKickMontage())
+		{
+			return;
+		}
+
+		RequestDodge();
 		return;
 	}
 
@@ -266,6 +317,22 @@ bool UEnemyCombatComponent::ShouldDodgeBetweenAttacks(const AActor* Target) cons
 	}
 
 	return FMath::FRand() <= BetweenAttackDodgeChance;
+}
+
+bool UEnemyCombatComponent::ShouldKickBetweenAttacks(const AActor* Target) const
+{
+	if (!OwnerCharacter || !Target || !KickMontage)
+	{
+		return false;
+	}
+
+	const float Distance = FVector::Dist2D(Target->GetActorLocation(), OwnerCharacter->GetActorLocation());
+	if (Distance > KickRange)
+	{
+		return false;
+	}
+
+	return FMath::FRand() <= BetweenAttackKickChance;
 }
 
 void UEnemyCombatComponent::RequestDodge()
@@ -479,6 +546,66 @@ void UEnemyCombatComponent::StopManualLateralDodgeMovement()
 	ManualLateralDodgePreviousAlpha = 0.0f;
 }
 
+void UEnemyCombatComponent::StartKickKnockback(ACharacter* HitCharacter, const FVector& Direction, float LaunchStrength)
+{
+	if (!HitCharacter || LaunchStrength <= 0.0f)
+	{
+		return;
+	}
+
+	StopKickKnockback();
+
+	KickKnockbackTarget = HitCharacter;
+	KickKnockbackDirection = Direction.GetSafeNormal2D();
+	KickKnockbackDistance = LaunchStrength * 0.4f;
+	KickKnockbackElapsedTime = 0.0f;
+	KickKnockbackPreviousAlpha = 0.0f;
+}
+
+void UEnemyCombatComponent::TickKickKnockback(float DeltaTime)
+{
+	if (!KickKnockbackTarget || KickKnockbackDirection.IsNearlyZero())
+	{
+		return;
+	}
+
+	KickKnockbackElapsedTime = FMath::Min(KickKnockbackElapsedTime + DeltaTime, KickKnockbackDuration);
+
+	const float RawAlpha = KickKnockbackDuration > 0.0f
+		? KickKnockbackElapsedTime / KickKnockbackDuration
+		: 1.0f;
+	const float CurrentAlpha = FMath::InterpEaseOut(0.0f, 1.0f, RawAlpha, 2.0f);
+	const float DeltaDistance = (CurrentAlpha - KickKnockbackPreviousAlpha) * KickKnockbackDistance;
+
+	if (!FMath::IsNearlyZero(DeltaDistance))
+	{
+		FHitResult Hit;
+		KickKnockbackTarget->AddActorWorldOffset(KickKnockbackDirection * DeltaDistance, true, &Hit);
+
+		if (Hit.bBlockingHit)
+		{
+			StopKickKnockback();
+			return;
+		}
+	}
+
+	KickKnockbackPreviousAlpha = CurrentAlpha;
+
+	if (KickKnockbackElapsedTime >= KickKnockbackDuration)
+	{
+		StopKickKnockback();
+	}
+}
+
+void UEnemyCombatComponent::StopKickKnockback()
+{
+	KickKnockbackTarget = nullptr;
+	KickKnockbackDirection = FVector::ZeroVector;
+	KickKnockbackDistance = 0.0f;
+	KickKnockbackElapsedTime = 0.0f;
+	KickKnockbackPreviousAlpha = 0.0f;
+}
+
 void UEnemyCombatComponent::OnDodgeFinished()
 {
 	bIsAttacking = false;
@@ -490,4 +617,111 @@ void UEnemyCombatComponent::OnDodgeFinished()
 		Blackboard->SetValueAsBool("ShouldDodge", false);
 	}
 	EnterState(EEnemyAIState::Chasing);
+}
+
+bool UEnemyCombatComponent::TryPlayKickMontage()
+{
+	if (!KickMontage || !OwnerCharacter || bIsAttacking || !CanKickCurrentTarget())
+	{
+		return false;
+	}
+
+	FaceTargetOnce();
+
+	if (UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance())
+	{
+		AnimInstance->Montage_Play(KickMontage);
+		bIsAttacking = true;
+		EnterState(EEnemyAIState::Attacking);
+
+		OwnerCharacter->GetCharacterMovement()->StopMovementImmediately();
+		OwnerCharacter->GetCharacterMovement()->SetMovementMode(MOVE_None);
+
+		const float Duration = KickMontage->GetPlayLength();
+		GetWorld()->GetTimerManager().SetTimer(CooldownTimer, this, &UEnemyCombatComponent::OnKickFinished, Duration, false);
+
+		return true;
+	}
+
+	return false;
+}
+
+void UEnemyCombatComponent::OnKickFinished()
+{
+	bIsAttacking = false;
+	EndKickDamageWindow();
+
+	if (OwnerCharacter)
+	{
+		OwnerCharacter->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+	}
+
+	EnterState(EEnemyAIState::Chasing);
+}
+
+void UEnemyCombatComponent::BeginKickDamageWindow()
+{
+	KickHitActors.Empty();
+}
+
+void UEnemyCombatComponent::TickKickDamageWindow(float DamageAmount, float HitRadius, float HitForwardOffset, float LaunchStrength, float LaunchUpwardStrength)
+{
+	if (!OwnerCharacter || HitRadius <= 0.0f)
+	{
+		return;
+	}
+
+	const FVector KickCenter = OwnerCharacter->GetActorLocation() + OwnerCharacter->GetActorForwardVector() * HitForwardOffset;
+	TArray<FOverlapResult> Overlaps;
+	FCollisionObjectQueryParams ObjectQueryParams;
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_Pawn);
+
+	FCollisionQueryParams QueryParams(FName(TEXT("EnemyKick")), false, OwnerCharacter);
+	if (!GetWorld()->OverlapMultiByObjectType(Overlaps, KickCenter, FQuat::Identity, ObjectQueryParams, FCollisionShape::MakeSphere(HitRadius), QueryParams))
+	{
+		return;
+	}
+
+	for (const FOverlapResult& Overlap : Overlaps)
+	{
+		AActor* HitActor = Overlap.GetActor();
+		if (!HitActor || HitActor == OwnerCharacter || KickHitActors.Contains(HitActor))
+		{
+			continue;
+		}
+
+		UPlayerStatsComponent* PlayerStats = HitActor->FindComponentByClass<UPlayerStatsComponent>();
+		if (!PlayerStats || PlayerStats->bIsInvincible)
+		{
+			continue;
+		}
+
+		PlayerStats->TakeDamage(DamageAmount);
+		KickHitActors.Add(HitActor);
+
+		if (ACharacter* HitCharacter = Cast<ACharacter>(HitActor))
+		{
+			FVector AwayFromEnemy = (HitActor->GetActorLocation() - OwnerCharacter->GetActorLocation()).GetSafeNormal2D();
+			if (AwayFromEnemy.IsNearlyZero())
+			{
+				AwayFromEnemy = OwnerCharacter->GetActorForwardVector().GetSafeNormal2D();
+			}
+
+			if (UCharacterMovementComponent* HitMovement = HitCharacter->GetCharacterMovement())
+			{
+				HitMovement->StopMovementImmediately();
+				HitMovement->SetMovementMode(MOVE_Falling);
+				HitMovement->Velocity = AwayFromEnemy * LaunchStrength + FVector::UpVector * LaunchUpwardStrength;
+			}
+
+			const FVector LaunchVelocity = AwayFromEnemy * LaunchStrength + FVector::UpVector * LaunchUpwardStrength;
+			HitCharacter->LaunchCharacter(LaunchVelocity, true, true);
+			StartKickKnockback(HitCharacter, AwayFromEnemy, LaunchStrength);
+		}
+	}
+}
+
+void UEnemyCombatComponent::EndKickDamageWindow()
+{
+	KickHitActors.Empty();
 }

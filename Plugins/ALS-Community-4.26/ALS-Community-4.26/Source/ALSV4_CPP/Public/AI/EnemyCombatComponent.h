@@ -9,6 +9,8 @@
 #include "AI/EnemyHeldWeaponBase.h"
 #include "EnemyCombatComponent.generated.h"
 
+class ACharacter;
+
 UENUM(BlueprintType)
 enum class EEnemyAIState : uint8
 {
@@ -34,6 +36,8 @@ public:
 	UEnemyCombatComponent();
 
 	void PerformAttack();
+	bool CanAttackCurrentTarget() const;
+	bool CanAttackTarget(const AActor* Target) const;
 
 	UPROPERTY()
 	FName EnemyUniqueID;
@@ -65,6 +69,12 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Combat|Dodge|Manual Movement", meta = (ClampMin = "0.0", EditCondition = "bUseManualLateralDodgeMovement"))
 	float ManualLateralDodgeDistance = 300.0f;
 
+	UPROPERTY(EditAnywhere, Category = "Combat|Kick")
+	UAnimMontage* KickMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Kick")
+	float KickRange = 175.0f;
+
 	UPROPERTY(EditAnywhere, Category = "Combat|Dodge", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float BetweenAttackDodgeChance = 0.25f;
 
@@ -74,12 +84,21 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Combat|Dodge", meta = (ClampMin = "0.0"))
 	float MinTimeBetweenAttackDodges = 1.25f;
 
+	UPROPERTY(EditAnywhere, Category = "Combat|Kick", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float BetweenAttackKickChance = 0.75f;
+
 	void PlayDodgeMontage();
 	bool TryPlayDodgeMontage();
 	bool TryPlayDodgeMontage(EEnemyDodgeDirection DodgeDirection);
 	bool HasDodgeMontage() const;
 	UAnimMontage* GetActiveDodgeMontage() const { return ActiveDodgeMontage; }
 	void OnDodgeFinished();
+	bool TryPlayKickMontage();
+	void OnKickFinished();
+	bool CanKickCurrentTarget() const;
+	void BeginKickDamageWindow();
+	void TickKickDamageWindow(float DamageAmount, float HitRadius, float HitForwardOffset, float LaunchStrength, float LaunchUpwardStrength);
+	void EndKickDamageWindow();
 
 	EEnemyAIState CurrentState = EEnemyAIState::Idle;
 
@@ -155,7 +174,11 @@ private:
 	void StartManualLateralDodgeMovement(EEnemyDodgeDirection DodgeDirection, float DodgeDuration);
 	void TickManualLateralDodgeMovement(float DeltaTime);
 	void StopManualLateralDodgeMovement();
+	void StartKickKnockback(ACharacter* HitCharacter, const FVector& Direction, float LaunchStrength);
+	void TickKickKnockback(float DeltaTime);
+	void StopKickKnockback();
 	bool ShouldDodgeBetweenAttacks(const AActor* Target) const;
+	bool ShouldKickBetweenAttacks(const AActor* Target) const;
 	void RequestDodge();
 	EEnemyDodgeDirection ChooseDodgeDirection() const;
 	UAnimMontage* GetDodgeMontageForDirection(EEnemyDodgeDirection DodgeDirection) const;
@@ -168,4 +191,12 @@ private:
 	float ManualLateralDodgeElapsedTime = 0.0f;
 	float ManualLateralDodgeDuration = 0.0f;
 	float ManualLateralDodgePreviousAlpha = 0.0f;
+	TSet<AActor*> KickHitActors;
+	UPROPERTY()
+	ACharacter* KickKnockbackTarget = nullptr;
+	FVector KickKnockbackDirection = FVector::ZeroVector;
+	float KickKnockbackDistance = 0.0f;
+	float KickKnockbackDuration = 0.25f;
+	float KickKnockbackElapsedTime = 0.0f;
+	float KickKnockbackPreviousAlpha = 0.0f;
 };

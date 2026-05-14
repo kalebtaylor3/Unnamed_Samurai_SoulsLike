@@ -26,6 +26,16 @@ EBTNodeResult::Type UBTTask_AttackPlayer::ExecuteTask(UBehaviorTreeComponent& Ow
 	CachedCombatComponent = AICharacter->FindComponentByClass<UEnemyCombatComponent>();
 	if (!CachedCombatComponent) return EBTNodeResult::Failed;
 
+	if (!CachedCombatComponent->CanAttackCurrentTarget())
+	{
+		if (UBlackboardComponent* Blackboard = OwnerComp.GetBlackboardComponent())
+		{
+			Blackboard->SetValueAsBool("IsInAttackRange", false);
+		}
+
+		return EBTNodeResult::Failed;
+	}
+
 	CachedCombatComponent->PerformAttack();
 
 	return EBTNodeResult::InProgress;
