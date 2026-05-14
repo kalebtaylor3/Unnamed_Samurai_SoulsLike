@@ -201,6 +201,7 @@ void UCombatComponent::CancelBowDraw()
 		}
 	}
 
+	HideBowPreviewArrow();
 	bIsDrawingBow = false;
 	bIsAttacking = false;
 	canRoll = true;
