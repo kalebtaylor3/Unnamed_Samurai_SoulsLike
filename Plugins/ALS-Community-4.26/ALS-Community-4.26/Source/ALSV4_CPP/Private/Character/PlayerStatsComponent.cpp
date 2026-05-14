@@ -6,6 +6,7 @@
 #include "AI/EnemyCombatComponent.h"
 #include "MyGameInstance.h"
 #include "Character/ALSBaseCharacter.h"
+#include "Character/InventoryComponent.h"
 
 
 UPlayerStatsComponent::UPlayerStatsComponent()
@@ -107,6 +108,18 @@ void UPlayerStatsComponent::TakeDamage(float Amount)
 {
 	if (bIsInvincible)
 		return; // No damage during i-frames
+
+	if (AALSBaseCharacter* OwnerChar = Cast<AALSBaseCharacter>(GetOwner()))
+	{
+		if (OwnerChar->Inventory && OwnerChar->Inventory->bHealing)
+		{
+			OwnerChar->Inventory->bHealing = false;
+			GetWorld()->GetTimerManager().ClearTimer(HealthRegenHandle);
+			GetWorld()->GetTimerManager().ClearTimer(FPRegenHandle);
+			RemainingHealAmount = 0.f;
+			RemainingFPAmount = 0.f;
+		}
+	}
 
 	if (CombatComponent && CombatComponent->bIsAttacking)
 	{
