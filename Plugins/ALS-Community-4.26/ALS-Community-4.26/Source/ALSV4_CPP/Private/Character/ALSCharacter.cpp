@@ -53,6 +53,16 @@ void AALSCharacter::AttachToHand(UStaticMesh* NewStaticMesh, USkeletalMesh* NewS
 			HeldWeaponActor->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, AttachSocket);
 			HeldWeaponActor->SetActorRelativeLocation(LocationOffset);
 			HeldWeaponActor->SetActorRelativeRotation(RotationOffset);
+
+			if (Inventory->CurrentWeapon->bIsBow)
+			{
+				HeldWeaponActor->ConfigurePreviewArrow(
+					Inventory->CurrentWeapon->PreviewArrowMesh,
+					Inventory->CurrentWeapon->ArrowSpawnSocketName,
+					Inventory->CurrentWeapon->PreviewArrowLocationOffset,
+					Inventory->CurrentWeapon->PreviewArrowRotationOffset,
+					Inventory->CurrentWeapon->PreviewArrowScale);
+			}
 			return; // ✅ Done! Don’t attach static mesh
 		}
 	}

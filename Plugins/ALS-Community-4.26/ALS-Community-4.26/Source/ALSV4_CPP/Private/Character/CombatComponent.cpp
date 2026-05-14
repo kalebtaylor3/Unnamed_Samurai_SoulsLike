@@ -1,6 +1,10 @@
 #include "Character/CombatComponent.h"
 #include "Animation/AnimInstance.h"
 #include "Character/ALSBaseCharacter.h"
+#include "Components/StaticMeshComponent.h"
+#include "GameFramework/PlayerController.h"
+#include "Weapons/HeldWeaponBase.h"
+#include "Weapons/WeaponArrowProjectile.h"
 
 UCombatComponent::UCombatComponent()
 {
@@ -56,6 +60,12 @@ void UCombatComponent::LightAttack()
 
 	if (!CurrentWeapon)
 		return;
+
+	if (IsBowEquipped())
+	{
+		FireBow();
+		return;
+	}
 
 	if (OwnerCharacter->GetOverlayState() == EALSOverlayState::Default)
 		return;
@@ -130,6 +140,70 @@ void UCombatComponent::LightAttack()
 
 		PlayLightAttackMontage(AttackIndex, CurrentMontageList);
 	}
+}
+
+void UCombatComponent::StartBowDraw()
+{
+	if (!OwnerCharacter || !CurrentWeapon || !IsBowEquipped())
+		return;
+
+	if (checkingForStanceChange || bIsAttacking || bIsDrawingBow)
+		return;
+
+	if (OwnerCharacter->PlayerStats->CurrentStamina < CurrentWeapon->LightAttackStaminaAmount)
+	{
+		OwnerCharacter->PlayerStats->NotifyStaminaExhausted();
+		return;
+	}
+
+	UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance();
+	if (!AnimInstance)
+		return;
+
+	bIsDrawingBow = true;
+	bIsAttacking = true;
+	canRoll = false;
+	ShowBowPreviewArrow();
+
+	AnimInstance->SetRootMotionMode(ERootMotionMode::RootMotionFromMontagesOnly);
+
+	if (CurrentWeapon->BowDrawMontage)
+	{
+		const float DrawDuration = AnimInstance->Montage_Play(CurrentWeapon->BowDrawMontage);
+		if (CurrentWeapon->BowDrawLoopMontage && DrawDuration > 0.0f)
+		{
+			GetWorld()->GetTimerManager().SetTimer(ChargeLoopTimer, this, &UCombatComponent::PlayBowDrawLoopMontage, DrawDuration, false);
+		}
+	}
+	else
+	{
+		PlayBowDrawLoopMontage();
+	}
+}
+
+void UCombatComponent::CancelBowDraw()
+{
+	if (!OwnerCharacter || !CurrentWeapon || !bIsDrawingBow)
+		return;
+
+	GetWorld()->GetTimerManager().ClearTimer(ChargeLoopTimer);
+
+	if (UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance())
+	{
+		if (CurrentWeapon->BowDrawMontage)
+		{
+			AnimInstance->Montage_Stop(0.15f, CurrentWeapon->BowDrawMontage);
+		}
+
+		if (CurrentWeapon->BowDrawLoopMontage)
+		{
+			AnimInstance->Montage_Stop(0.15f, CurrentWeapon->BowDrawLoopMontage);
+		}
+	}
+
+	bIsDrawingBow = false;
+	bIsAttacking = false;
+	canRoll = true;
 }
 
 void UCombatComponent::UseAshOfWar()
@@ -295,6 +369,171 @@ void UCombatComponent::PlayChargeLoopMontage()
 	}
 }
 
+void UCombatComponent::PlayBowDrawLoopMontage()
+{
+	if (!OwnerCharacter || !CurrentWeapon || !CurrentWeapon->BowDrawLoopMontage || !bIsDrawingBow)
+		return;
+
+	UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance();
+	if (!AnimInstance)
+		return;
+
+	if (CurrentWeapon->BowDrawMontage)
+	{
+		AnimInstance->Montage_Stop(0.0f, CurrentWeapon->BowDrawMontage);
+	}
+
+	AnimInstance->SetRootMotionMode(ERootMotionMode::RootMotionFromMontagesOnly);
+	const float LoopDuration = AnimInstance->Montage_Play(CurrentWeapon->BowDrawLoopMontage);
+	if (LoopDuration > 0.0f)
+	{
+		GetWorld()->GetTimerManager().SetTimer(ChargeLoopTimer, this, &UCombatComponent::PlayBowDrawLoopMontage, LoopDuration, false);
+	}
+}
+
+bool UCombatComponent::IsBowEquipped() const
+{
+	return CurrentWeapon && CurrentWeapon->bIsBow;
+}
+
+bool UCombatComponent::FireBow()
+{
+	if (!OwnerCharacter || !CurrentWeapon || !IsBowEquipped() || !bIsDrawingBow)
+		return false;
+
+	if (!CurrentWeapon->ArrowProjectileClass)
+		return false;
+
+	if (OwnerCharacter->PlayerStats->CurrentStamina < CurrentWeapon->LightAttackStaminaAmount)
+	{
+		OwnerCharacter->PlayerStats->NotifyStaminaExhausted();
+		return false;
+	}
+
+	const FVector SpawnLocation = GetBowArrowSpawnLocation();
+	const FRotator AimRotation = GetBowAimRotation(SpawnLocation);
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = OwnerCharacter;
+	SpawnParams.Instigator = OwnerCharacter;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	AWeaponArrowProjectile* Arrow = GetWorld()->SpawnActor<AWeaponArrowProjectile>(
+		CurrentWeapon->ArrowProjectileClass, SpawnLocation, AimRotation, SpawnParams);
+
+	if (Arrow)
+	{
+		if (CurrentWeapon->PreviewArrowMesh && Arrow->ArrowMesh && !Arrow->ArrowMesh->GetStaticMesh())
+		{
+			Arrow->ArrowMesh->SetStaticMesh(CurrentWeapon->PreviewArrowMesh);
+		}
+
+		Arrow->InitializeArrow(CurrentWeapon->ArrowDamage, CurrentWeapon->ArrowSpeed, OwnerCharacter);
+	}
+
+	GetWorld()->GetTimerManager().ClearTimer(ChargeLoopTimer);
+	GetWorld()->GetTimerManager().ClearTimer(OwnerCharacter->PlayerStats->StaminaRegenHandle);
+	HideBowPreviewArrow();
+	OwnerCharacter->PlayerStats->UseStamina(CurrentWeapon->LightAttackStaminaAmount);
+
+	if (CurrentWeapon->BowFireCameraShake)
+	{
+		if (APlayerController* PlayerController = Cast<APlayerController>(OwnerCharacter->GetController()))
+		{
+			PlayerController->ClientStartCameraShake(CurrentWeapon->BowFireCameraShake, CurrentWeapon->BowFireCameraShakeScale);
+		}
+	}
+
+	if (UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance())
+	{
+		if (CurrentWeapon->BowDrawMontage)
+		{
+			AnimInstance->Montage_Stop(0.0f, CurrentWeapon->BowDrawMontage);
+		}
+
+		if (CurrentWeapon->BowDrawLoopMontage)
+		{
+			AnimInstance->Montage_Stop(0.0f, CurrentWeapon->BowDrawLoopMontage);
+		}
+
+		if (CurrentWeapon->BowFireMontage)
+		{
+			AnimInstance->Montage_Play(CurrentWeapon->BowFireMontage);
+		}
+	}
+
+	bIsDrawingBow = false;
+	bIsAttacking = false;
+	canRoll = true;
+
+	return Arrow != nullptr;
+}
+
+void UCombatComponent::ShowBowPreviewArrow()
+{
+	if (OwnerCharacter && OwnerCharacter->HeldWeaponActor)
+	{
+		OwnerCharacter->HeldWeaponActor->ShowPreviewArrow();
+	}
+}
+
+void UCombatComponent::HideBowPreviewArrow()
+{
+	if (OwnerCharacter && OwnerCharacter->HeldWeaponActor)
+	{
+		OwnerCharacter->HeldWeaponActor->HidePreviewArrow();
+	}
+}
+
+FVector UCombatComponent::GetBowArrowSpawnLocation() const
+{
+	if (!OwnerCharacter || !CurrentWeapon)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (OwnerCharacter->HeldWeaponActor)
+	{
+		if (UStaticMeshComponent* WeaponMesh = OwnerCharacter->HeldWeaponActor->WeaponMesh)
+		{
+			if (WeaponMesh->DoesSocketExist(CurrentWeapon->ArrowSpawnSocketName))
+			{
+				return WeaponMesh->GetSocketLocation(CurrentWeapon->ArrowSpawnSocketName);
+			}
+		}
+	}
+
+	return OwnerCharacter->GetActorLocation() + OwnerCharacter->GetActorTransform().TransformVector(CurrentWeapon->ArrowSpawnOffset);
+}
+
+FRotator UCombatComponent::GetBowAimRotation(const FVector& SpawnLocation) const
+{
+	if (!OwnerCharacter || !CurrentWeapon)
+	{
+		return FRotator::ZeroRotator;
+	}
+
+	APlayerController* PlayerController = Cast<APlayerController>(OwnerCharacter->GetController());
+	if (!PlayerController)
+	{
+		return OwnerCharacter->GetActorRotation();
+	}
+
+	FVector ViewLocation = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+
+	const FVector TraceStart = ViewLocation;
+	const FVector TraceEnd = TraceStart + ViewRotation.Vector() * CurrentWeapon->AimTraceRange;
+
+	FHitResult Hit;
+	FCollisionQueryParams QueryParams(FName(TEXT("BowAimTrace")), false, OwnerCharacter);
+	const bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, QueryParams);
+
+	const FVector AimPoint = bHit ? Hit.ImpactPoint : TraceEnd;
+	return (AimPoint - SpawnLocation).Rotation();
+}
+
 void UCombatComponent::HeavyAttackCheck(bool bValue)
 {
 	if (bValue)
@@ -364,6 +603,8 @@ void UCombatComponent::InterruptAttack()
 	bIsChargingHeavy = false;
 	bIsHoldingCharge = false;
 	bIsLoopingCharge = false;
+	bIsDrawingBow = false;
+	HideBowPreviewArrow();
 	bCanReceiveInput = false;
 	bInputQueuedThisWindow = false;
 	checkingForStanceChange = false;

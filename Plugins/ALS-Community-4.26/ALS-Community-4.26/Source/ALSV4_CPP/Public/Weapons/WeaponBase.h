@@ -10,6 +10,9 @@
 #include "PaperSprite.h"
 #include "WeaponBase.generated.h"
 
+class AWeaponArrowProjectile;
+class UCameraShakeBase;
+
 UCLASS(Blueprintable, BlueprintType)
 class ALSV4_CPP_API UWeaponBase : public UObject
 {
@@ -73,6 +76,54 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	UAnimMontage* HeavyAttackMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow")
+	bool bIsBow = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	TSubclassOf<AWeaponArrowProjectile> ArrowProjectileClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	UAnimMontage* BowDrawMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	UAnimMontage* BowDrawLoopMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	UAnimMontage* BowFireMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	TSubclassOf<UCameraShakeBase> BowFireCameraShake;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	float BowFireCameraShakeScale = 1.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	FName ArrowSpawnSocketName = TEXT("ArrowSocket");
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	UStaticMesh* PreviewArrowMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	FVector PreviewArrowLocationOffset = FVector::ZeroVector;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	FRotator PreviewArrowRotationOffset = FRotator::ZeroRotator;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	FVector PreviewArrowScale = FVector::OneVector;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	FVector ArrowSpawnOffset = FVector(60.0f, 0.0f, 40.0f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	float ArrowDamage = 35.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	float ArrowSpeed = 4500.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
+	float AimTraceRange = 10000.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Data")
 	FName WeaponName;

@@ -26,10 +26,16 @@ public:
 	UStaticMeshComponent* WeaponMesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UStaticMeshComponent* PreviewArrowMesh;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class UBoxComponent* DamageHitbox;
 
 	void EnableDamageCollision(float InDamageAmount);
 	void DisableDamageCollision();
+	void ConfigurePreviewArrow(UStaticMesh* ArrowMesh, FName SocketName, const FVector& LocationOffset, const FRotator& RotationOffset, const FVector& Scale);
+	void ShowPreviewArrow();
+	void HidePreviewArrow();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Effects")
 	UParticleSystem* HitEffect;

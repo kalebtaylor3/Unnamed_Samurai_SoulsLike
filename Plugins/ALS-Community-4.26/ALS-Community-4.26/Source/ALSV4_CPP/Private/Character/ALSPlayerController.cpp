@@ -131,6 +131,12 @@ void AALSPlayerController::BindActions(UInputMappingContext* Context, TSet<const
 					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Completed, this, &AALSPlayerController::CheckForStanceChangeReleasedAction);
 					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Canceled, this, &AALSPlayerController::CheckForStanceChangeReleasedAction);
 				}
+				else if (Keymapping.Action->GetFName() == GET_FUNCTION_NAME_CHECKED(AALSPlayerController, AimAction))
+				{
+					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Started, this, &AALSPlayerController::AimAction);
+					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Completed, this, &AALSPlayerController::AimAction);
+					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Canceled, this, &AALSPlayerController::AimAction);
+				}
 				else
 				{
 					EnhancedInputComponent->BindAction(Keymapping.Action, ETriggerEvent::Triggered, Cast<UObject>(this), Keymapping.Action->GetFName());
@@ -629,6 +635,18 @@ void AALSPlayerController::AimAction(const FInputActionValue& Value)
 
 	if (PossessedCharacter)
 	{
+		if (PossessedCharacter->CombatSystem)
+		{
+			if (Value.Get<bool>())
+			{
+				PossessedCharacter->CombatSystem->StartBowDraw();
+			}
+			else
+			{
+				PossessedCharacter->CombatSystem->CancelBowDraw();
+			}
+		}
+
 		PossessedCharacter->AimAction(Value.Get<bool>());
 	}
 }

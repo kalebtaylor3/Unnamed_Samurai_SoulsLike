@@ -23,6 +23,8 @@ public:
 	UCombatComponent();
 
 	void LightAttack();
+	void StartBowDraw();
+	void CancelBowDraw();
 	void HeavyAttackCheck(bool bValue);
 	void StartChargeHeavyAttack();
 	void ReleaseChargeHeavyAttack();
@@ -51,6 +53,7 @@ public:
 	bool bCanChangeStance = true;
 	bool bCanReceiveInput = true;
 	bool bInputQueuedThisWindow = false;
+	bool bIsDrawingBow = false;
 	TQueue<int32> QueuedComboIndices;
 
 	UFUNCTION()
@@ -77,5 +80,12 @@ private:
 	FTimerHandle StanceChangeCooldownTimer;
 
 	void PlayChargeLoopMontage();
+	void PlayBowDrawLoopMontage();
+	bool IsBowEquipped() const;
+	bool FireBow();
+	void ShowBowPreviewArrow();
+	void HideBowPreviewArrow();
+	FVector GetBowArrowSpawnLocation() const;
+	FRotator GetBowAimRotation(const FVector& SpawnLocation) const;
 	void PlayLightAttackMontage(int32 Index, const TArray<UAnimMontage*>& MontageList);
 };

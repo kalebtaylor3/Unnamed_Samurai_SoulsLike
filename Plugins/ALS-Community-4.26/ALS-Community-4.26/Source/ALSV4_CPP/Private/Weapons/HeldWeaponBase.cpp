@@ -15,6 +15,11 @@ AHeldWeaponBase::AHeldWeaponBase()
 	WeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponMesh"));
 	WeaponMesh->SetupAttachment(Root);
 
+	PreviewArrowMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PreviewArrowMesh"));
+	PreviewArrowMesh->SetupAttachment(WeaponMesh);
+	PreviewArrowMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	PreviewArrowMesh->SetVisibility(false);
+
 	DamageHitbox = CreateDefaultSubobject<UBoxComponent>(TEXT("DamageHitbox"));
 	DamageHitbox->SetupAttachment(WeaponMesh);
 	DamageHitbox->SetCollisionObjectType(ECC_WorldDynamic);
@@ -44,6 +49,47 @@ void AHeldWeaponBase::DisableDamageCollision()
 	DamageHitbox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	CurrentDamageAmount = 0.f;
 	AlreadyDamagedActors.Empty();
+}
+
+void AHeldWeaponBase::ConfigurePreviewArrow(UStaticMesh* ArrowMesh, FName SocketName, const FVector& LocationOffset, const FRotator& RotationOffset, const FVector& Scale)
+{
+	if (!PreviewArrowMesh)
+	{
+		return;
+	}
+
+	PreviewArrowMesh->SetStaticMesh(ArrowMesh);
+	PreviewArrowMesh->SetVisibility(false);
+	PreviewArrowMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	if (WeaponMesh && WeaponMesh->DoesSocketExist(SocketName))
+	{
+		PreviewArrowMesh->AttachToComponent(WeaponMesh, FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+	}
+	else
+	{
+		PreviewArrowMesh->AttachToComponent(WeaponMesh, FAttachmentTransformRules::KeepRelativeTransform);
+	}
+
+	PreviewArrowMesh->SetRelativeLocation(LocationOffset);
+	PreviewArrowMesh->SetRelativeRotation(RotationOffset);
+	PreviewArrowMesh->SetRelativeScale3D(Scale);
+}
+
+void AHeldWeaponBase::ShowPreviewArrow()
+{
+	if (PreviewArrowMesh && PreviewArrowMesh->GetStaticMesh())
+	{
+		PreviewArrowMesh->SetVisibility(true);
+	}
+}
+
+void AHeldWeaponBase::HidePreviewArrow()
+{
+	if (PreviewArrowMesh)
+	{
+		PreviewArrowMesh->SetVisibility(false);
+	}
 }
 
 void AHeldWeaponBase::OnDamageHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
