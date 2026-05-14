@@ -17,6 +17,14 @@ enum class EEnemyAIState : uint8
 	Attacking
 };
 
+UENUM(BlueprintType)
+enum class EEnemyDodgeDirection : uint8
+{
+	Backward,
+	Left,
+	Right
+};
+
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class ALSV4_CPP_API UEnemyCombatComponent : public UActorComponent
 {
@@ -33,8 +41,29 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	UAnimMontage* DodgeMontage;
 
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge")
+	UAnimMontage* LeftDodgeMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge")
+	UAnimMontage* RightDodgeMontage;
+
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	float DodgeTriggerRange = 200.0f; // Optional tweakable range
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge", meta = (ClampMin = "0.0"))
+	float BackwardDodgeWeight = 1.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge", meta = (ClampMin = "0.0"))
+	float LeftDodgeWeight = 1.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge", meta = (ClampMin = "0.0"))
+	float RightDodgeWeight = 1.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge|Manual Movement")
+	bool bUseManualLateralDodgeMovement = true;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge|Manual Movement", meta = (ClampMin = "0.0", EditCondition = "bUseManualLateralDodgeMovement"))
+	float ManualLateralDodgeDistance = 300.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Combat|Dodge", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float BetweenAttackDodgeChance = 0.25f;
@@ -47,6 +76,9 @@ public:
 
 	void PlayDodgeMontage();
 	bool TryPlayDodgeMontage();
+	bool TryPlayDodgeMontage(EEnemyDodgeDirection DodgeDirection);
+	bool HasDodgeMontage() const;
+	UAnimMontage* GetActiveDodgeMontage() const { return ActiveDodgeMontage; }
 	void OnDodgeFinished();
 
 	EEnemyAIState CurrentState = EEnemyAIState::Idle;
@@ -120,8 +152,20 @@ private:
 
 	void EnterState(EEnemyAIState NewState);
 	void OnAttackFinished();
+	void StartManualLateralDodgeMovement(EEnemyDodgeDirection DodgeDirection, float DodgeDuration);
+	void TickManualLateralDodgeMovement(float DeltaTime);
+	void StopManualLateralDodgeMovement();
 	bool ShouldDodgeBetweenAttacks(const AActor* Target) const;
 	void RequestDodge();
+	EEnemyDodgeDirection ChooseDodgeDirection() const;
+	UAnimMontage* GetDodgeMontageForDirection(EEnemyDodgeDirection DodgeDirection) const;
 
 	float LastBetweenAttackDodgeTime = -1000.0f;
+	UPROPERTY()
+	UAnimMontage* ActiveDodgeMontage = nullptr;
+	bool bIsManualLateralDodgeActive = false;
+	FVector ManualLateralDodgeDirection = FVector::ZeroVector;
+	float ManualLateralDodgeElapsedTime = 0.0f;
+	float ManualLateralDodgeDuration = 0.0f;
+	float ManualLateralDodgePreviousAlpha = 0.0f;
 };

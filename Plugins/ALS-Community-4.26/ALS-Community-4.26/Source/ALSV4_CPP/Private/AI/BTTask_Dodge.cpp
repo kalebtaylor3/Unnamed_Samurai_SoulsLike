@@ -23,7 +23,7 @@ EBTNodeResult::Type UBTTask_Dodge::ExecuteTask(UBehaviorTreeComponent& OwnerComp
 		{
 			CombatComponent = Enemy->FindComponentByClass<UEnemyCombatComponent>();
 
-			if (CombatComponent && CombatComponent->DodgeMontage)
+			if (CombatComponent && CombatComponent->HasDodgeMontage())
 			{
 				if (!ShouldAttemptDodge(OwnerComp, Enemy))
 				{
@@ -35,7 +35,13 @@ EBTNodeResult::Type UBTTask_Dodge::ExecuteTask(UBehaviorTreeComponent& OwnerComp
 					return EBTNodeResult::Failed;
 				}
 
-				DodgeDuration = CombatComponent->DodgeMontage->GetPlayLength();
+				UAnimMontage* ActiveDodgeMontage = CombatComponent->GetActiveDodgeMontage();
+				if (!ActiveDodgeMontage)
+				{
+					return EBTNodeResult::Failed;
+				}
+
+				DodgeDuration = ActiveDodgeMontage->GetPlayLength();
 				ElapsedTime = 0.f;
 				bIsWaitingForMontageEnd = true;
 				LastDodgeTime = Enemy->GetWorld()->GetTimeSeconds();

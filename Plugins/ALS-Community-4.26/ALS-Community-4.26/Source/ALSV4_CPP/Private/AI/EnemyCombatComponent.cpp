@@ -81,6 +81,8 @@ void UEnemyCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 			bShouldRotateToTarget = false;
 		}
 	}
+
+	TickManualLateralDodgeMovement(DeltaTime);
 }
 
 void UEnemyCombatComponent::EnterState(EEnemyAIState NewState)
@@ -229,7 +231,7 @@ void UEnemyCombatComponent::ContinueCombo()
 		{
 			const float Distance = FVector::Dist2D(Target->GetActorLocation(), OwnerCharacter->GetActorLocation());
 
-			if (Distance <= DodgeTriggerRange && DodgeMontage)
+			if (Distance <= DodgeTriggerRange && HasDodgeMontage())
 			{
 				RequestDodge();
 
@@ -247,7 +249,7 @@ void UEnemyCombatComponent::ContinueCombo()
 
 bool UEnemyCombatComponent::ShouldDodgeBetweenAttacks(const AActor* Target) const
 {
-	if (!OwnerCharacter || !Target || !DodgeMontage || !GetWorld())
+	if (!OwnerCharacter || !Target || !HasDodgeMontage() || !GetWorld())
 	{
 		return false;
 	}
@@ -314,7 +316,18 @@ void UEnemyCombatComponent::PlayDodgeMontage()
 
 bool UEnemyCombatComponent::TryPlayDodgeMontage()
 {
-	if (!DodgeMontage || !OwnerCharacter || bIsAttacking)
+	return TryPlayDodgeMontage(ChooseDodgeDirection());
+}
+
+bool UEnemyCombatComponent::TryPlayDodgeMontage(EEnemyDodgeDirection DodgeDirection)
+{
+	if (!HasDodgeMontage() || !OwnerCharacter || bIsAttacking)
+	{
+		return false;
+	}
+
+	UAnimMontage* SelectedDodgeMontage = GetDodgeMontageForDirection(DodgeDirection);
+	if (!SelectedDodgeMontage)
 	{
 		return false;
 	}
@@ -322,14 +335,16 @@ bool UEnemyCombatComponent::TryPlayDodgeMontage()
 	if (UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance())
 	{
 
-		AnimInstance->Montage_Play(DodgeMontage);
+		ActiveDodgeMontage = SelectedDodgeMontage;
+		AnimInstance->Montage_Play(SelectedDodgeMontage);
 		bIsAttacking = true;
 
 		OwnerCharacter->GetCharacterMovement()->StopMovementImmediately();
 		OwnerCharacter->GetCharacterMovement()->SetMovementMode(MOVE_Flying);
 
 		// Reset after dodge montage duration
-		const float Duration = DodgeMontage->GetPlayLength();
+		const float Duration = SelectedDodgeMontage->GetPlayLength();
+		StartManualLateralDodgeMovement(DodgeDirection, Duration);
 		GetWorld()->GetTimerManager().SetTimer(CooldownTimer, this, &UEnemyCombatComponent::OnDodgeFinished, Duration, false);
 
 		return true;
@@ -338,9 +353,137 @@ bool UEnemyCombatComponent::TryPlayDodgeMontage()
 	return false;
 }
 
+bool UEnemyCombatComponent::HasDodgeMontage() const
+{
+	return DodgeMontage || LeftDodgeMontage || RightDodgeMontage;
+}
+
+EEnemyDodgeDirection UEnemyCombatComponent::ChooseDodgeDirection() const
+{
+	const float AvailableBackwardWeight = DodgeMontage ? FMath::Max(BackwardDodgeWeight, 0.0f) : 0.0f;
+	const float AvailableLeftWeight = LeftDodgeMontage ? FMath::Max(LeftDodgeWeight, 0.0f) : 0.0f;
+	const float AvailableRightWeight = RightDodgeMontage ? FMath::Max(RightDodgeWeight, 0.0f) : 0.0f;
+
+	const float TotalWeight = AvailableBackwardWeight + AvailableLeftWeight + AvailableRightWeight;
+	if (TotalWeight <= 0.0f)
+	{
+		if (LeftDodgeMontage)
+		{
+			return EEnemyDodgeDirection::Left;
+		}
+
+		if (RightDodgeMontage)
+		{
+			return EEnemyDodgeDirection::Right;
+		}
+
+		return EEnemyDodgeDirection::Backward;
+	}
+
+	const float Roll = FMath::FRandRange(0.0f, TotalWeight);
+	if (Roll < AvailableBackwardWeight)
+	{
+		return EEnemyDodgeDirection::Backward;
+	}
+
+	if (Roll < AvailableBackwardWeight + AvailableLeftWeight)
+	{
+		return EEnemyDodgeDirection::Left;
+	}
+
+	return EEnemyDodgeDirection::Right;
+}
+
+UAnimMontage* UEnemyCombatComponent::GetDodgeMontageForDirection(EEnemyDodgeDirection DodgeDirection) const
+{
+	switch (DodgeDirection)
+	{
+	case EEnemyDodgeDirection::Left:
+		return LeftDodgeMontage ? LeftDodgeMontage : DodgeMontage;
+	case EEnemyDodgeDirection::Right:
+		return RightDodgeMontage ? RightDodgeMontage : DodgeMontage;
+	case EEnemyDodgeDirection::Backward:
+	default:
+		return DodgeMontage;
+	}
+}
+
+void UEnemyCombatComponent::StartManualLateralDodgeMovement(EEnemyDodgeDirection DodgeDirection, float DodgeDuration)
+{
+	StopManualLateralDodgeMovement();
+
+	if (!bUseManualLateralDodgeMovement || !OwnerCharacter || ManualLateralDodgeDistance <= 0.0f || DodgeDuration <= 0.0f)
+	{
+		return;
+	}
+
+	if (DodgeDirection == EEnemyDodgeDirection::Backward)
+	{
+		return;
+	}
+
+	const FVector RightVector = OwnerCharacter->GetActorRightVector().GetSafeNormal2D();
+	if (RightVector.IsNearlyZero())
+	{
+		return;
+	}
+
+	ManualLateralDodgeDirection = DodgeDirection == EEnemyDodgeDirection::Left ? -RightVector : RightVector;
+	ManualLateralDodgeDuration = DodgeDuration;
+	ManualLateralDodgeElapsedTime = 0.0f;
+	ManualLateralDodgePreviousAlpha = 0.0f;
+	bIsManualLateralDodgeActive = true;
+}
+
+void UEnemyCombatComponent::TickManualLateralDodgeMovement(float DeltaTime)
+{
+	if (!bIsManualLateralDodgeActive || !OwnerCharacter)
+	{
+		return;
+	}
+
+	ManualLateralDodgeElapsedTime = FMath::Min(ManualLateralDodgeElapsedTime + DeltaTime, ManualLateralDodgeDuration);
+
+	const float RawAlpha = ManualLateralDodgeDuration > 0.0f
+		? ManualLateralDodgeElapsedTime / ManualLateralDodgeDuration
+		: 1.0f;
+	const float CurrentAlpha = FMath::InterpEaseOut(0.0f, 1.0f, RawAlpha, 2.0f);
+	const float DeltaDistance = (CurrentAlpha - ManualLateralDodgePreviousAlpha) * ManualLateralDodgeDistance;
+
+	if (!FMath::IsNearlyZero(DeltaDistance))
+	{
+		FHitResult Hit;
+		OwnerCharacter->AddActorWorldOffset(ManualLateralDodgeDirection * DeltaDistance, true, &Hit);
+
+		if (Hit.bBlockingHit)
+		{
+			StopManualLateralDodgeMovement();
+			return;
+		}
+	}
+
+	ManualLateralDodgePreviousAlpha = CurrentAlpha;
+
+	if (ManualLateralDodgeElapsedTime >= ManualLateralDodgeDuration)
+	{
+		StopManualLateralDodgeMovement();
+	}
+}
+
+void UEnemyCombatComponent::StopManualLateralDodgeMovement()
+{
+	bIsManualLateralDodgeActive = false;
+	ManualLateralDodgeDirection = FVector::ZeroVector;
+	ManualLateralDodgeElapsedTime = 0.0f;
+	ManualLateralDodgeDuration = 0.0f;
+	ManualLateralDodgePreviousAlpha = 0.0f;
+}
+
 void UEnemyCombatComponent::OnDodgeFinished()
 {
 	bIsAttacking = false;
+	ActiveDodgeMontage = nullptr;
+	StopManualLateralDodgeMovement();
 	OwnerCharacter->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 	if (Blackboard)
 	{
