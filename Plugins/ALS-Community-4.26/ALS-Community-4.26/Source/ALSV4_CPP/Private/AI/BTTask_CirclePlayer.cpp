@@ -2,7 +2,9 @@
 
 
 #include "AI/BTTask_CirclePlayer.h"
+#include "AI/EnemyCombatComponent.h"
 #include "AIController.h"
+#include "BehaviorTree/BehaviorTreeComponent.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "GameFramework/Character.h"
 #include "NavigationSystem.h"
@@ -13,6 +15,7 @@ UBTTask_CirclePlayer::UBTTask_CirclePlayer()
 {
 	NodeName = "Circle Player";
 	bNotifyTick = false;
+	bCreateNodeInstance = true;
 }
 
 EBTNodeResult::Type UBTTask_CirclePlayer::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
@@ -22,6 +25,11 @@ EBTNodeResult::Type UBTTask_CirclePlayer::ExecuteTask(UBehaviorTreeComponent& Ow
 
 	APawn* AIPawn = AIController->GetPawn();
 	if (!AIPawn) return EBTNodeResult::Failed;
+
+	if (UEnemyCombatComponent* CombatComp = AIPawn->FindComponentByClass<UEnemyCombatComponent>())
+	{
+		CombatComp->StartStaminaRegen();
+	}
 
 	UBlackboardComponent* Blackboard = OwnerComp.GetBlackboardComponent();
 	AActor* Target = Cast<AActor>(Blackboard->GetValueAsObject("TargetActor"));
@@ -55,8 +63,12 @@ EBTNodeResult::Type UBTTask_CirclePlayer::ExecuteTask(UBehaviorTreeComponent& Ow
 	AIController->MoveToLocation(DesiredLocation, 5.0f);
 
 	FTimerDelegate TimerDel;
-	TimerDel.BindLambda([this, &OwnerComp]() {
-		FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
+	TWeakObjectPtr<UBehaviorTreeComponent> WeakOwnerComp(&OwnerComp);
+	TimerDel.BindLambda([this, WeakOwnerComp]() {
+		if (UBehaviorTreeComponent* BehaviorTreeComp = WeakOwnerComp.Get())
+		{
+			FinishLatentTask(*BehaviorTreeComp, EBTNodeResult::Succeeded);
+		}
 		});
 
 	FTimerHandle TempHandle;

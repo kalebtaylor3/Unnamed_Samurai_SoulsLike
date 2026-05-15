@@ -18,5 +18,11 @@ bool UBTDecorator_NotEnoughStamina::CalculateRawConditionValue(UBehaviorTreeComp
 	UEnemyCombatComponent* CombatComp = AIPawn->FindComponentByClass<UEnemyCombatComponent>();
 	if (!CombatComp) return false;
 
-	return CombatComp->GetCurrentStamina() < RequiredStamina;
+	const bool bNotEnoughStamina = CombatComp->GetCurrentStamina() < RequiredStamina;
+	if (bNotEnoughStamina)
+	{
+		CombatComp->StartStaminaRegen();
+	}
+
+	return bNotEnoughStamina;
 }

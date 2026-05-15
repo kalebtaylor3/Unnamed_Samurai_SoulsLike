@@ -123,6 +123,7 @@ public:
 
 	void ContinueCombo(); // new
 	float GetCurrentStamina() const { return CurrentStamina; }
+	void StartStaminaRegen();
 	void RegenStamina();
 
 	UPROPERTY(EditAnywhere, Category = "Weapon")

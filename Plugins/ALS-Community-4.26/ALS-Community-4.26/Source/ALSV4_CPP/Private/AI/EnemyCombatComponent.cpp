@@ -276,7 +276,7 @@ void UEnemyCombatComponent::ContinueCombo()
 		ComboIndex = 0;
 
 		// Start stamina regen now that combo is over
-		GetWorld()->GetTimerManager().SetTimer(StaminaRegenTimer, this, &UEnemyCombatComponent::RegenStamina, 1.0f, true);
+		StartStaminaRegen();
 
 		if (Target)
 		{
@@ -337,11 +337,24 @@ bool UEnemyCombatComponent::ShouldKickBetweenAttacks(const AActor* Target) const
 
 void UEnemyCombatComponent::RequestDodge()
 {
-	GetWorld()->GetTimerManager().SetTimer(StaminaRegenTimer, this, &UEnemyCombatComponent::RegenStamina, 1.0f, true);
+	StartStaminaRegen();
 
 	if (Blackboard)
 	{
 		Blackboard->SetValueAsBool("ShouldDodge", true);
+	}
+}
+
+void UEnemyCombatComponent::StartStaminaRegen()
+{
+	if (!GetWorld() || CurrentStamina >= MaxStamina)
+	{
+		return;
+	}
+
+	if (!GetWorld()->GetTimerManager().IsTimerActive(StaminaRegenTimer))
+	{
+		GetWorld()->GetTimerManager().SetTimer(StaminaRegenTimer, this, &UEnemyCombatComponent::RegenStamina, 0.25f, true);
 	}
 }
 
@@ -350,7 +363,7 @@ void UEnemyCombatComponent::RegenStamina()
 	if (bIsAttacking || bComboOngoing)
 		return;
 
-	CurrentStamina = FMath::Clamp(CurrentStamina + StaminaRegenRate, 0.f, MaxStamina);
+	CurrentStamina = FMath::Clamp(CurrentStamina + (StaminaRegenRate * 0.25f), 0.f, MaxStamina);
 
 	if (CurrentStamina >= MaxStamina)
 	{
