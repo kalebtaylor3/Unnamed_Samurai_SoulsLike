@@ -90,6 +90,24 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Combat|Dodge", meta = (ClampMin = "0.0"))
 	float MinTimeBetweenAttackDodges = 1.25f;
 
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge|On Hit")
+	bool bEnablePostHitDodge = true;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge|On Hit", meta = (ClampMin = "0.0"))
+	float PostHitDodgeDelay = 0.65f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge|On Hit", meta = (ClampMin = "0.0"))
+	float PostHitDodgeRange = 500.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge|On Hit", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float PostHitDodgeChance = 0.35f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge|On Hit")
+	bool bGuaranteePostHitDodgeWhenUnaware = true;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge|On Hit", meta = (ClampMin = "0.0"))
+	float WasHitResetDelay = 0.9f;
+
 	UPROPERTY(EditAnywhere, Category = "Combat|Kick", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float BetweenAttackKickChance = 0.75f;
 
@@ -106,6 +124,7 @@ public:
 	void TickKickDamageWindow(float DamageAmount, float HitRadius, float HitForwardOffset, float LaunchStrength, float LaunchUpwardStrength);
 	void EndKickDamageWindow();
 	void HandleOwnerDeath();
+	void HandleOwnerHit(AActor* InstigatorActor);
 
 	EEnemyAIState CurrentState = EEnemyAIState::Idle;
 
@@ -169,6 +188,8 @@ private:
 
 	FTimerHandle CooldownTimer;
 	FTimerHandle DodgeInvincibilityDelayTimer;
+	FTimerHandle PostHitDodgeTimer;
+	FTimerHandle WasHitResetTimer;
 
 	int32 CurrentAttackIndex = 0;
 
@@ -190,10 +211,13 @@ private:
 	bool ShouldKickBetweenAttacks(const AActor* Target) const;
 	void RequestDodge();
 	void BeginDodgeInvincibility();
+	void TryPostHitDodge();
+	void ClearWasHitFlag();
 	EEnemyDodgeDirection ChooseDodgeDirection() const;
 	UAnimMontage* GetDodgeMontageForDirection(EEnemyDodgeDirection DodgeDirection) const;
 
 	float LastBetweenAttackDodgeTime = -1000.0f;
+	bool bForceNextPostHitDodge = false;
 	UPROPERTY()
 	UAnimMontage* ActiveDodgeMontage = nullptr;
 	bool bIsManualLateralDodgeActive = false;

@@ -1,6 +1,7 @@
 #include "AI/EnemyCombatComponent.h"
 #include "AIController.h"
 #include "Animation/AnimInstance.h"
+#include "BrainComponent.h"
 #include "Character/ALSBaseCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Character.h"
@@ -711,6 +712,8 @@ void UEnemyCombatComponent::HandleOwnerDeath()
 		GetWorld()->GetTimerManager().ClearTimer(CooldownTimer);
 		GetWorld()->GetTimerManager().ClearTimer(StaminaRegenTimer);
 		GetWorld()->GetTimerManager().ClearTimer(DodgeInvincibilityDelayTimer);
+		GetWorld()->GetTimerManager().ClearTimer(PostHitDodgeTimer);
+		GetWorld()->GetTimerManager().ClearTimer(WasHitResetTimer);
 	}
 
 	StopManualLateralDodgeMovement();
@@ -736,6 +739,152 @@ void UEnemyCombatComponent::HandleOwnerDeath()
 		Blackboard->SetValueAsBool("WasHit", false);
 		Blackboard->SetValueAsBool("IsInAttackRange", false);
 		Blackboard->ClearValue(TargetActorKey.SelectedKeyName);
+	}
+
+	bForceNextPostHitDodge = false;
+}
+
+void UEnemyCombatComponent::HandleOwnerHit(AActor* InstigatorActor)
+{
+	if (!OwnerCharacter)
+	{
+		return;
+	}
+
+	bIsAttacking = false;
+	bComboOngoing = false;
+	bShouldRotateToTarget = false;
+	ComboIndex = 0;
+	ComboStartIndex = 0;
+	ActiveDodgeMontage = nullptr;
+
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(CooldownTimer);
+		GetWorld()->GetTimerManager().ClearTimer(DodgeInvincibilityDelayTimer);
+		GetWorld()->GetTimerManager().ClearTimer(PostHitDodgeTimer);
+		GetWorld()->GetTimerManager().ClearTimer(WasHitResetTimer);
+	}
+
+	StopManualLateralDodgeMovement();
+	EndKickDamageWindow();
+
+	if (UCharacterMovementComponent* MovementComponent = OwnerCharacter->GetCharacterMovement())
+	{
+		MovementComponent->SetMovementMode(MOVE_Walking);
+	}
+
+	AActor* TargetActor = InstigatorActor ? InstigatorActor : UGameplayStatics::GetPlayerCharacter(this, 0);
+	const bool bWasUnawareOfTarget = !Blackboard || !Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName);
+	bForceNextPostHitDodge = bGuaranteePostHitDodgeWhenUnaware && bWasUnawareOfTarget;
+
+	if (Blackboard && TargetActor)
+	{
+		Blackboard->SetValueAsObject(TargetActorKey.SelectedKeyName, TargetActor);
+		Blackboard->SetValueAsBool("WasHit", true);
+	}
+
+	EnterState(EEnemyAIState::Chasing);
+	FaceTargetOnce();
+
+	if (bEnablePostHitDodge && HasDodgeMontage() && GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(PostHitDodgeTimer);
+		GetWorld()->GetTimerManager().SetTimer(
+			PostHitDodgeTimer,
+			this,
+			&UEnemyCombatComponent::TryPostHitDodge,
+			PostHitDodgeDelay,
+			false
+		);
+	}
+
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().SetTimer(
+			WasHitResetTimer,
+			this,
+			&UEnemyCombatComponent::ClearWasHitFlag,
+			WasHitResetDelay,
+			false
+		);
+	}
+}
+
+void UEnemyCombatComponent::TryPostHitDodge()
+{
+	if (!OwnerCharacter || !HasDodgeMontage())
+	{
+		return;
+	}
+
+	if (UEnemyHealthComponent* HealthComponent = OwnerCharacter->FindComponentByClass<UEnemyHealthComponent>())
+	{
+		if (HealthComponent->IsDeadOrOutOfHealth())
+		{
+			return;
+		}
+	}
+
+	AActor* Target = Blackboard ? Cast<AActor>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName)) : nullptr;
+	if (!Target)
+	{
+		Target = UGameplayStatics::GetPlayerCharacter(this, 0);
+		if (Blackboard && Target)
+		{
+			Blackboard->SetValueAsObject(TargetActorKey.SelectedKeyName, Target);
+		}
+	}
+
+	if (!Target)
+	{
+		return;
+	}
+
+	const float DistanceToTarget = FVector::Dist2D(OwnerCharacter->GetActorLocation(), Target->GetActorLocation());
+	if (DistanceToTarget > PostHitDodgeRange)
+	{
+		bForceNextPostHitDodge = false;
+		return;
+	}
+
+	const bool bUseGuaranteedUnawareDodge = bForceNextPostHitDodge;
+	const float EffectiveDodgeChance = bUseGuaranteedUnawareDodge ? 1.0f : PostHitDodgeChance;
+	bForceNextPostHitDodge = false;
+
+	if (FMath::FRand() > EffectiveDodgeChance)
+	{
+		ClearWasHitFlag();
+		return;
+	}
+
+	FaceTargetOnce();
+	if (AAIController* AIController = OwnerCharacter ? Cast<AAIController>(OwnerCharacter->GetController()) : nullptr)
+	{
+		AIController->StopMovement();
+	}
+
+	if (UCharacterMovementComponent* MovementComponent = OwnerCharacter->GetCharacterMovement())
+	{
+		MovementComponent->StopMovementImmediately();
+		MovementComponent->SetMovementMode(MOVE_Walking);
+	}
+
+	const bool bDodgeStarted = bUseGuaranteedUnawareDodge
+		? TryPlayDodgeMontage(EEnemyDodgeDirection::Backward)
+		: TryPlayDodgeMontage();
+
+	if (!bDodgeStarted)
+	{
+		ClearWasHitFlag();
+	}
+}
+
+void UEnemyCombatComponent::ClearWasHitFlag()
+{
+	if (Blackboard)
+	{
+		Blackboard->SetValueAsBool("WasHit", false);
 	}
 }
 

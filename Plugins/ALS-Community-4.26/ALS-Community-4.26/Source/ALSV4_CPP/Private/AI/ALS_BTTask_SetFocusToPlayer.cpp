@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 #include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
 #include "AIController.h"
+#include "BehaviorTree/BlackboardComponent.h"
 
 UALS_BTTask_SetFocusToPlayer::UALS_BTTask_SetFocusToPlayer()
 {
@@ -17,6 +18,12 @@ EBTNodeResult::Type UALS_BTTask_SetFocusToPlayer::ExecuteTask(UBehaviorTreeCompo
 	if (Pawn)
 	{
 		OwnerComp.GetAIOwner()->SetFocus(Pawn);
+
+		if (UBlackboardComponent* Blackboard = OwnerComp.GetBlackboardComponent())
+		{
+			Blackboard->SetValueAsObject("TargetActor", Pawn);
+		}
+
 		return EBTNodeResult::Succeeded;
 	}
 

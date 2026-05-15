@@ -33,6 +33,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Dodge")
 	bool bAllowProximityDodge = false;
 
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	bool bAllowWasHitProximityDodge = true;
+
 	UPROPERTY(EditAnywhere, Category = "Dodge", meta = (EditCondition = "bAllowProximityDodge"))
 	float ProximityDodgeRange = 250.0f;
 

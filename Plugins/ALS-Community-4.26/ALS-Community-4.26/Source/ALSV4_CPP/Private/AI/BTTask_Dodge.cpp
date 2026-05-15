@@ -7,6 +7,7 @@
 #include "AI/EnemyCombatComponent.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
 
 namespace
 {
@@ -40,8 +41,12 @@ EBTNodeResult::Type UBTTask_Dodge::ExecuteTask(UBehaviorTreeComponent& OwnerComp
 
 				if (!ShouldAttemptDodge(OwnerComp, Enemy))
 				{
+					const bool bWasHit = OwnerComp.GetBlackboardComponent()
+						? OwnerComp.GetBlackboardComponent()->GetValueAsBool("WasHit")
+						: false;
+
 					ClearWasHit(OwnerComp);
-					return bSucceedWhenSkippingDodge ? EBTNodeResult::Succeeded : EBTNodeResult::Failed;
+					return (bSucceedWhenSkippingDodge || bWasHit) ? EBTNodeResult::Succeeded : EBTNodeResult::Failed;
 				}
 
 				if (!CombatComponent->TryPlayDodgeMontage())
@@ -119,12 +124,24 @@ bool UBTTask_Dodge::ShouldAttemptDodge(UBehaviorTreeComponent& OwnerComp, AALSBa
 		return true;
 	}
 
-	if (bRequireShouldDodge || !bAllowProximityDodge)
+	const bool bWasHit = Blackboard->GetValueAsBool("WasHit");
+	const bool bCanUseProximityDodge = bAllowProximityDodge || (bWasHit && bAllowWasHitProximityDodge);
+
+	if ((bRequireShouldDodge && !bWasHit) || !bCanUseProximityDodge)
 	{
 		return false;
 	}
 
 	AActor* Target = Cast<AActor>(Blackboard->GetValueAsObject("TargetActor"));
+	if (!Target && bWasHit)
+	{
+		Target = UGameplayStatics::GetPlayerCharacter(Enemy, 0);
+		if (Target)
+		{
+			Blackboard->SetValueAsObject("TargetActor", Target);
+		}
+	}
+
 	if (!Target)
 	{
 		return false;

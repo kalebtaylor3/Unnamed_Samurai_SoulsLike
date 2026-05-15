@@ -47,6 +47,15 @@ void UEnemyHealthComponent::TakeDamage(float DamageAmount)
 	CurrentHealth = FMath::Clamp(CurrentHealth - DamageAmount, 0.0f, MaxHealth);
 	UpdateHealthBar();
 
+	AActor* PlayerActor = UGameplayStatics::GetPlayerCharacter(this, 0);
+
+	if (UEnemyCombatComponent* CombatComponent = GetOwner()
+		? GetOwner()->FindComponentByClass<UEnemyCombatComponent>()
+		: nullptr)
+	{
+		CombatComponent->HandleOwnerHit(PlayerActor);
+	}
+
 	// === Set WasHit to true on blackboard ===
 	if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))
 	{
@@ -55,6 +64,10 @@ void UEnemyHealthComponent::TakeDamage(float DamageAmount)
 			if (UBlackboardComponent* BB = AIController->GetBlackboardComponent())
 			{
 				BB->SetValueAsBool("WasHit", true);
+				if (PlayerActor)
+				{
+					BB->SetValueAsObject("TargetActor", PlayerActor);
+				}
 			}
 		}
 	}
