@@ -2,6 +2,7 @@
 
 
 #include "AI/EnemyHealthComponent.h"
+#include "AI/EnemyCombatComponent.h"
 #include "Components/WidgetComponent.h"
 #include "AI/WBP_EnemyHealthBar.h"
 #include "AIController.h"
@@ -9,6 +10,7 @@
 #include "Character/ALSBaseCharacter.h"
 #include "Character/ALSPlayerCameraManager.h"
 #include "Blueprint/UserWidget.h"
+#include "BrainComponent.h"
 
 UEnemyHealthComponent::UEnemyHealthComponent()
 {
@@ -26,6 +28,22 @@ void UEnemyHealthComponent::BeginPlay()
 
 void UEnemyHealthComponent::TakeDamage(float DamageAmount)
 {
+	if (bIsDead)
+	{
+		return;
+	}
+
+	if (CurrentHealth <= 0.0f)
+	{
+		HandleDeath();
+		return;
+	}
+
+	if (bIsInvincible)
+	{
+		return;
+	}
+
 	CurrentHealth = FMath::Clamp(CurrentHealth - DamageAmount, 0.0f, MaxHealth);
 	UpdateHealthBar();
 
@@ -43,59 +61,126 @@ void UEnemyHealthComponent::TakeDamage(float DamageAmount)
 
 	if (CurrentHealth <= 0.0f && !bIsDead)
 	{
-		bIsDead = true;
-
-		// Drop runes visually
-		if (RuneDropFX)
-		{
-			FVector EnemyLocation = GetOwner()->GetActorLocation();
-			FVector PlayerLocation = FVector::ZeroVector;
-
-			if (ACharacter* PlayerChar = UGameplayStatics::GetPlayerCharacter(this, 0))
-			{
-				PlayerLocation = PlayerChar->GetActorLocation();
-			}
-
-			// Spawn Niagara at enemy location
-			UNiagaraComponent* NiagaraComp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-				GetWorld(),
-				RuneDropFX,
-				EnemyLocation,
-				FRotator::ZeroRotator,
-				FVector(1.f),
-				true, true, ENCPoolMethod::AutoRelease
-			);
-
-			if (NiagaraComp)
-			{
-				// Delay setting the ActorLocation to prevent instant collection
-				FTimerHandle DelayHandle;
-				FVector TargetLocation = PlayerLocation;
-
-				GetWorld()->GetTimerManager().SetTimer(DelayHandle, [NiagaraComp, TargetLocation]()
-					{
-						if (NiagaraComp && !NiagaraComp->IsBeingDestroyed())
-						{
-							NiagaraComp->SetVariableVec3(FName("ActorLocation"), TargetLocation);
-						}
-					}, .7f, false); // Delay in seconds before attraction starts (e.g., 1.0f)
-			}
-		}
-
-		if (AALSBaseCharacter* Player = Cast<AALSBaseCharacter>(UGameplayStatics::GetPlayerCharacter(this, 0)))
-		{
-			if (UPlayerStatsComponent* Stats = Player->FindComponentByClass<UPlayerStatsComponent>())
-			{
-				Stats->AddRunes(RunesToDrop);
-			}
-		}
-
-		// Optional: hide health bar
-		ShowHealthBar(false);
-		ClearLockOnIfTargetDies();
-
-		OnDeath.Broadcast();
+		HandleDeath();
 	}
+}
+
+void UEnemyHealthComponent::HandleDeath()
+{
+	if (bIsDead)
+	{
+		return;
+	}
+
+	bIsDead = true;
+	bIsInvincible = false;
+	CurrentHealth = 0.0f;
+	UpdateHealthBar();
+
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(InvincibilityTimerHandle);
+	}
+
+	if (AActor* OwnerActor = GetOwner())
+	{
+		if (UEnemyCombatComponent* CombatComponent = OwnerActor->FindComponentByClass<UEnemyCombatComponent>())
+		{
+			CombatComponent->HandleOwnerDeath();
+		}
+
+		if (APawn* OwnerPawn = Cast<APawn>(OwnerActor))
+		{
+			if (AAIController* AIController = Cast<AAIController>(OwnerPawn->GetController()))
+			{
+				AIController->ClearFocus(EAIFocusPriority::Gameplay);
+
+				if (UBlackboardComponent* BB = AIController->GetBlackboardComponent())
+				{
+					BB->SetValueAsBool("WasHit", false);
+					BB->SetValueAsBool("ShouldDodge", false);
+					BB->SetValueAsBool("IsInAttackRange", false);
+					BB->ClearValue("TargetActor");
+				}
+
+				if (UBrainComponent* Brain = AIController->GetBrainComponent())
+				{
+					Brain->StopLogic(TEXT("Enemy died"));
+				}
+			}
+		}
+	}
+
+	// Drop runes visually
+	if (RuneDropFX)
+	{
+		FVector EnemyLocation = GetOwner()->GetActorLocation();
+		FVector PlayerLocation = FVector::ZeroVector;
+
+		if (ACharacter* PlayerChar = UGameplayStatics::GetPlayerCharacter(this, 0))
+		{
+			PlayerLocation = PlayerChar->GetActorLocation();
+		}
+
+		UNiagaraComponent* NiagaraComp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(),
+			RuneDropFX,
+			EnemyLocation,
+			FRotator::ZeroRotator,
+			FVector(1.f),
+			true, true, ENCPoolMethod::AutoRelease
+		);
+
+		if (NiagaraComp)
+		{
+			FTimerHandle DelayHandle;
+			FVector TargetLocation = PlayerLocation;
+
+			GetWorld()->GetTimerManager().SetTimer(DelayHandle, [NiagaraComp, TargetLocation]()
+				{
+					if (NiagaraComp && !NiagaraComp->IsBeingDestroyed())
+					{
+						NiagaraComp->SetVariableVec3(FName("ActorLocation"), TargetLocation);
+					}
+				}, .7f, false);
+		}
+	}
+
+	if (AALSBaseCharacter* Player = Cast<AALSBaseCharacter>(UGameplayStatics::GetPlayerCharacter(this, 0)))
+	{
+		if (UPlayerStatsComponent* Stats = Player->FindComponentByClass<UPlayerStatsComponent>())
+		{
+			Stats->AddRunes(RunesToDrop);
+		}
+	}
+
+	ShowHealthBar(false);
+	ClearLockOnIfTargetDies();
+
+	OnDeath.Broadcast();
+}
+
+void UEnemyHealthComponent::SetInvincibleForDuration(float Duration)
+{
+	if (!GetWorld() || Duration <= 0.0f || bIsDead)
+	{
+		return;
+	}
+
+	bIsInvincible = true;
+	GetWorld()->GetTimerManager().ClearTimer(InvincibilityTimerHandle);
+	GetWorld()->GetTimerManager().SetTimer(
+		InvincibilityTimerHandle,
+		this,
+		&UEnemyHealthComponent::ResetInvincibility,
+		Duration,
+		false
+	);
+}
+
+void UEnemyHealthComponent::ResetInvincibility()
+{
+	bIsInvincible = false;
 }
 
 void UEnemyHealthComponent::ClearLockOnIfTargetDies()

@@ -36,6 +36,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void TakeDamage(float DamageAmount);
 
+	UFUNCTION(BlueprintCallable, Category = "Health")
+	void SetInvincibleForDuration(float Duration);
+
 	UFUNCTION(BlueprintCallable)
 	bool IsDeadOrOutOfHealth() const { return bIsDead || CurrentHealth <= 0.0f; }
 
@@ -50,6 +53,9 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsDead = false;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Health")
+	bool bIsInvincible = false;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -57,6 +63,10 @@ private:
 	UPROPERTY()
 	UEnemyHealthBarWidgetComponent* HealthBarWidget;
 
+	FTimerHandle InvincibilityTimerHandle;
+
+	void HandleDeath();
+	void ResetInvincibility();
 	void UpdateHealthBar();
 	void CacheHealthBarWidget();
 };

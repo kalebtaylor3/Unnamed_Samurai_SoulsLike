@@ -69,6 +69,12 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Combat|Dodge|Manual Movement", meta = (ClampMin = "0.0", EditCondition = "bUseManualLateralDodgeMovement"))
 	float ManualLateralDodgeDistance = 300.0f;
 
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge|Invincibility", meta = (ClampMin = "0.0"))
+	float DodgeInvincibilityDelay = 0.08f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|Dodge|Invincibility", meta = (ClampMin = "0.0"))
+	float DodgeInvincibilityDuration = 0.22f;
+
 	UPROPERTY(EditAnywhere, Category = "Combat|Kick")
 	UAnimMontage* KickMontage;
 
@@ -99,6 +105,7 @@ public:
 	void BeginKickDamageWindow();
 	void TickKickDamageWindow(float DamageAmount, float HitRadius, float HitForwardOffset, float LaunchStrength, float LaunchUpwardStrength);
 	void EndKickDamageWindow();
+	void HandleOwnerDeath();
 
 	EEnemyAIState CurrentState = EEnemyAIState::Idle;
 
@@ -161,6 +168,7 @@ private:
 	UBlackboardComponent* Blackboard = nullptr;
 
 	FTimerHandle CooldownTimer;
+	FTimerHandle DodgeInvincibilityDelayTimer;
 
 	int32 CurrentAttackIndex = 0;
 
@@ -181,6 +189,7 @@ private:
 	bool ShouldDodgeBetweenAttacks(const AActor* Target) const;
 	bool ShouldKickBetweenAttacks(const AActor* Target) const;
 	void RequestDodge();
+	void BeginDodgeInvincibility();
 	EEnemyDodgeDirection ChooseDodgeDirection() const;
 	UAnimMontage* GetDodgeMontageForDirection(EEnemyDodgeDirection DodgeDirection) const;
 

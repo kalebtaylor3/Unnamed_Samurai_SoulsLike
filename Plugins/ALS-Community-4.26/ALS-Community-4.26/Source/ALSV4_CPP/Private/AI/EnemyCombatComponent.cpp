@@ -4,6 +4,7 @@
 #include "Character/ALSBaseCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Character.h"
+#include "AI/EnemyHealthComponent.h"
 #include "AI/EnemyHeldWeaponBase.h"
 #include "Components/BoxComponent.h"
 #include "Engine/OverlapResult.h"
@@ -54,6 +55,17 @@ void UEnemyCombatComponent::BeginPlay()
 void UEnemyCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	if (OwnerCharacter)
+	{
+		if (UEnemyHealthComponent* HealthComponent = OwnerCharacter->FindComponentByClass<UEnemyHealthComponent>())
+		{
+			if (HealthComponent->IsDeadOrOutOfHealth())
+			{
+				return;
+			}
+		}
+	}
 
 	AActor* CurrentTarget = Blackboard ? Cast<AActor>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName)) : nullptr;
 
@@ -131,6 +143,17 @@ void UEnemyCombatComponent::TickAttacking()
 
 void UEnemyCombatComponent::PerformAttack()
 {
+	if (OwnerCharacter)
+	{
+		if (UEnemyHealthComponent* HealthComponent = OwnerCharacter->FindComponentByClass<UEnemyHealthComponent>())
+		{
+			if (HealthComponent->IsDeadOrOutOfHealth())
+			{
+				return;
+			}
+		}
+	}
+
 	if (!OwnerCharacter || bIsAttacking || AttackMontages.Num() == 0 || CurrentStamina <= 0.f)
 		return;
 
@@ -427,10 +450,39 @@ bool UEnemyCombatComponent::TryPlayDodgeMontage(EEnemyDodgeDirection DodgeDirect
 		StartManualLateralDodgeMovement(DodgeDirection, Duration);
 		GetWorld()->GetTimerManager().SetTimer(CooldownTimer, this, &UEnemyCombatComponent::OnDodgeFinished, Duration, false);
 
+		GetWorld()->GetTimerManager().ClearTimer(DodgeInvincibilityDelayTimer);
+		if (DodgeInvincibilityDelay > 0.0f)
+		{
+			GetWorld()->GetTimerManager().SetTimer(
+				DodgeInvincibilityDelayTimer,
+				this,
+				&UEnemyCombatComponent::BeginDodgeInvincibility,
+				DodgeInvincibilityDelay,
+				false
+			);
+		}
+		else
+		{
+			BeginDodgeInvincibility();
+		}
+
 		return true;
 	}
 
 	return false;
+}
+
+void UEnemyCombatComponent::BeginDodgeInvincibility()
+{
+	if (!OwnerCharacter || DodgeInvincibilityDuration <= 0.0f)
+	{
+		return;
+	}
+
+	if (UEnemyHealthComponent* HealthComponent = OwnerCharacter->FindComponentByClass<UEnemyHealthComponent>())
+	{
+		HealthComponent->SetInvincibleForDuration(DodgeInvincibilityDuration);
+	}
 }
 
 bool UEnemyCombatComponent::HasDodgeMontage() const
@@ -621,6 +673,18 @@ void UEnemyCombatComponent::StopKickKnockback()
 
 void UEnemyCombatComponent::OnDodgeFinished()
 {
+	if (OwnerCharacter)
+	{
+		if (UEnemyHealthComponent* HealthComponent = OwnerCharacter->FindComponentByClass<UEnemyHealthComponent>())
+		{
+			if (HealthComponent->IsDeadOrOutOfHealth())
+			{
+				HandleOwnerDeath();
+				return;
+			}
+		}
+	}
+
 	bIsAttacking = false;
 	ActiveDodgeMontage = nullptr;
 	StopManualLateralDodgeMovement();
@@ -630,6 +694,49 @@ void UEnemyCombatComponent::OnDodgeFinished()
 		Blackboard->SetValueAsBool("ShouldDodge", false);
 	}
 	EnterState(EEnemyAIState::Chasing);
+}
+
+void UEnemyCombatComponent::HandleOwnerDeath()
+{
+	bIsAttacking = false;
+	bComboOngoing = false;
+	bShouldRotateToTarget = false;
+	ComboIndex = 0;
+	ComboStartIndex = 0;
+	CurrentState = EEnemyAIState::Idle;
+	ActiveDodgeMontage = nullptr;
+
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(CooldownTimer);
+		GetWorld()->GetTimerManager().ClearTimer(StaminaRegenTimer);
+		GetWorld()->GetTimerManager().ClearTimer(DodgeInvincibilityDelayTimer);
+	}
+
+	StopManualLateralDodgeMovement();
+	EndKickDamageWindow();
+
+	if (OwnerCharacter)
+	{
+		if (UAnimInstance* AnimInstance = OwnerCharacter->GetMesh() ? OwnerCharacter->GetMesh()->GetAnimInstance() : nullptr)
+		{
+			AnimInstance->StopAllMontages(0.1f);
+		}
+
+		if (UCharacterMovementComponent* MovementComponent = OwnerCharacter->GetCharacterMovement())
+		{
+			MovementComponent->StopMovementImmediately();
+			MovementComponent->DisableMovement();
+		}
+	}
+
+	if (Blackboard)
+	{
+		Blackboard->SetValueAsBool("ShouldDodge", false);
+		Blackboard->SetValueAsBool("WasHit", false);
+		Blackboard->SetValueAsBool("IsInAttackRange", false);
+		Blackboard->ClearValue(TargetActorKey.SelectedKeyName);
+	}
 }
 
 bool UEnemyCombatComponent::TryPlayKickMontage()
