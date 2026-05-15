@@ -3,12 +3,112 @@
 
 #include "Character/UI/BonfireMenuWidget.h"
 #include "Character/ALSBaseCharacter.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
 #include "Components/Border.h"
+#include "Components/CanvasPanelSlot.h"
 
 void UBonfireMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+	UpdateSafeArea();
 	OpenMainMenu();
+}
+
+void UBonfireMenuWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	APlayerController* PC = GetOwningPlayer();
+	if (!PC)
+	{
+		return;
+	}
+
+	int32 ViewX = 0;
+	int32 ViewY = 0;
+	PC->GetViewportSize(ViewX, ViewY);
+	if (ViewX > 0 && ViewY > 0 && CachedViewportSize != FIntPoint(ViewX, ViewY))
+	{
+		UpdateSafeArea();
+	}
+}
+
+void UBonfireMenuWidget::UpdateSafeArea()
+{
+	APlayerController* PC = GetOwningPlayer();
+	if (!PC)
+	{
+		return;
+	}
+
+	int32 ViewX = 0;
+	int32 ViewY = 0;
+	PC->GetViewportSize(ViewX, ViewY);
+	if (ViewX <= 0 || ViewY <= 0)
+	{
+		return;
+	}
+
+	CachedViewportSize = FIntPoint(ViewX, ViewY);
+
+	constexpr float DesiredAspect = 16.0f / 9.0f;
+	const float ViewAspect = static_cast<float>(ViewX) / static_cast<float>(ViewY);
+
+	float WorldWidthPx = 0.0f;
+	float WorldHeightPx = 0.0f;
+	float WorldXPx = 0.0f;
+	float WorldYPx = 0.0f;
+
+	if (ViewAspect > DesiredAspect)
+	{
+		WorldHeightPx = static_cast<float>(ViewY);
+		WorldWidthPx = WorldHeightPx * DesiredAspect;
+		WorldXPx = 0.5f * (static_cast<float>(ViewX) - WorldWidthPx);
+	}
+	else
+	{
+		WorldWidthPx = static_cast<float>(ViewX);
+		WorldHeightPx = WorldWidthPx / DesiredAspect;
+		WorldYPx = 0.5f * (static_cast<float>(ViewY) - WorldHeightPx);
+	}
+
+	float DPIScale = UWidgetLayoutLibrary::GetViewportScale(this);
+	if (DPIScale <= 0.0f)
+	{
+		DPIScale = 1.0f;
+	}
+
+	const FVector2D SafePosition(WorldXPx / DPIScale, WorldYPx / DPIScale);
+	const FVector2D SafeSize(WorldWidthPx / DPIScale, WorldHeightPx / DPIScale);
+
+	auto ApplySafeAreaToWidget = [SafePosition, SafeSize](UWidget* Widget)
+	{
+		if (!Widget)
+		{
+			return;
+		}
+
+		if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
+		{
+			CanvasSlot->SetAnchors(FAnchors(0.0f, 0.0f, 0.0f, 0.0f));
+			CanvasSlot->SetAlignment(FVector2D(0.0f, 0.0f));
+			CanvasSlot->SetPosition(SafePosition);
+			CanvasSlot->SetSize(SafeSize);
+		}
+
+		Widget->SetRenderTransformPivot(FVector2D(0.0f, 0.0f));
+		Widget->SetRenderScale(FVector2D(1.0f, 1.0f));
+	};
+
+	if (SafeArea_16_9)
+	{
+		ApplySafeAreaToWidget(SafeArea_16_9);
+	}
+	else
+	{
+		ApplySafeAreaToWidget(BonfirePanel);
+		ApplySafeAreaToWidget(LevelUpPanel);
+	}
 }
 
 void UBonfireMenuWidget::OpenMainMenu()

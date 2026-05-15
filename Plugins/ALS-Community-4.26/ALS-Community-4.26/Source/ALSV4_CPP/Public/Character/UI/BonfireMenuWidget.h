@@ -44,6 +44,9 @@ public:
 
 protected:
 	virtual void NativeConstruct() override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
+	void UpdateSafeArea();
 
 	UPROPERTY(meta = (BindWidget))
 	UBorder* OptionBorder0;
@@ -56,6 +59,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	UPanelWidget* LevelUpPanel;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UPanelWidget* SafeArea_16_9;
 
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* LocationNameTextBlock;
@@ -70,6 +76,7 @@ protected:
 
 	int32 CurrentIndex = 0;
 	int32 MaxOptions = 2; // Set to how many you actually have
+	FIntPoint CachedViewportSize = FIntPoint::ZeroValue;
 
 	void ClearOption(int32 Index);
 	void ExecuteOption(int32 Index);

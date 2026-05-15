@@ -4,7 +4,6 @@
 #include "Character/UI/PlayerHUDUI.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Components/CanvasPanelSlot.h"
-#include "Blueprint/WidgetLayoutLibrary.h"
 #include "Slate/WidgetTransform.h"
 
 namespace
@@ -131,18 +130,28 @@ void UPlayerHUDUI::UpdateSafeArea()
 	const float WorldXUMG      = WorldXPx      / DPIScale;
 	const float WorldYUMG      = WorldYPx      / DPIScale;
 
-	// === 3) Apply to SafeArea_16_9 slot (no extra RenderScale) ===
-	if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(SafeArea_16_9->Slot))
+	auto ApplySafeAreaToWidget = [WorldXUMG, WorldYUMG, WorldWidthUMG, WorldHeightUMG](UWidget* Widget)
 	{
-		CanvasSlot->SetAnchors(FAnchors(0.f, 0.f, 0.f, 0.f));
-		CanvasSlot->SetAlignment(FVector2D(0.f, 0.f));
-		CanvasSlot->SetPosition(FVector2D(WorldXUMG, WorldYUMG));
-		CanvasSlot->SetSize(FVector2D(WorldWidthUMG, WorldHeightUMG));
-	}
+		if (!Widget)
+		{
+			return;
+		}
 
-	// Make sure we are not additionally scaling it
-	SafeArea_16_9->SetRenderTransformPivot(FVector2D(0.f, 0.f));
-	SafeArea_16_9->SetRenderScale(FVector2D(1.f, 1.f));
+		if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
+		{
+			CanvasSlot->SetAnchors(FAnchors(0.f, 0.f, 0.f, 0.f));
+			CanvasSlot->SetAlignment(FVector2D(0.f, 0.f));
+			CanvasSlot->SetPosition(FVector2D(WorldXUMG, WorldYUMG));
+			CanvasSlot->SetSize(FVector2D(WorldWidthUMG, WorldHeightUMG));
+		}
+
+		Widget->SetRenderTransformPivot(FVector2D(0.f, 0.f));
+		Widget->SetRenderScale(FVector2D(1.f, 1.f));
+	};
+
+	// === 3) Apply to every top-level UI panel that should live in the 16:9 frame ===
+	ApplySafeAreaToWidget(SafeArea_16_9);
+	ApplySafeAreaToWidget(InventoryPannel);
 }
 
 

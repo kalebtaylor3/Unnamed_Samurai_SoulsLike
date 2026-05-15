@@ -7,6 +7,7 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 AWeaponArrowProjectile::AWeaponArrowProjectile()
 {
@@ -49,10 +50,11 @@ void AWeaponArrowProjectile::BeginPlay()
 	PreviousLocation = GetActorLocation();
 }
 
-void AWeaponArrowProjectile::InitializeArrow(float InDamage, float InSpeed, AActor* InIgnoredActor)
+void AWeaponArrowProjectile::InitializeArrow(float InDamage, float InSpeed, AActor* InIgnoredActor, UParticleSystem* InHitEffect)
 {
 	DamageAmount = InDamage;
 	IgnoredActor = InIgnoredActor;
+	HitEffect = InHitEffect;
 	IgnoredActors.Empty();
 	DamagedActors.Empty();
 	bStuck = false;
@@ -285,6 +287,15 @@ void AWeaponArrowProjectile::HandleEnemyHit(AActor* HitActor, const FHitResult& 
 	else if (!TryFindEnemyBodyStickHit(HitActor, Hit, StickHit))
 	{
 		return;
+	}
+
+	if (HitEffect)
+	{
+		const FVector EffectLocation = StickHit.ImpactPoint.IsNearlyZero() ? GetActorLocation() : StickHit.ImpactPoint;
+		const FVector HitDirection = -GetActorForwardVector();
+		FRotator EffectRotation = HitDirection.Rotation();
+		EffectRotation.Pitch += 180.0f;
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitEffect, EffectLocation, EffectRotation, FVector(1.3f));
 	}
 
 	StickArrowToHit(StickHit);

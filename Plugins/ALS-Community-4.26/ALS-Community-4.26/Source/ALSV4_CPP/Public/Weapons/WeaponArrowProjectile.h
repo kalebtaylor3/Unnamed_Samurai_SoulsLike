@@ -7,6 +7,7 @@
 #include "WeaponArrowProjectile.generated.h"
 
 class UProjectileMovementComponent;
+class UParticleSystem;
 class USphereComponent;
 class UStaticMeshComponent;
 
@@ -18,7 +19,7 @@ class ALSV4_CPP_API AWeaponArrowProjectile : public AActor
 public:
 	AWeaponArrowProjectile();
 
-	void InitializeArrow(float InDamage, float InSpeed, AActor* InIgnoredActor);
+	void InitializeArrow(float InDamage, float InSpeed, AActor* InIgnoredActor, UParticleSystem* InHitEffect = nullptr);
 
 	virtual void Tick(float DeltaSeconds) override;
 
@@ -62,6 +63,9 @@ private:
 
 	UPROPERTY()
 	TSet<AActor*> DamagedActors;
+
+	UPROPERTY()
+	UParticleSystem* HitEffect = nullptr;
 
 	float DamageAmount = 35.0f;
 	FVector PreviousLocation = FVector::ZeroVector;

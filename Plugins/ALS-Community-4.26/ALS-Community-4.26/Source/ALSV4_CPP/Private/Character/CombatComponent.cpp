@@ -150,12 +150,6 @@ void UCombatComponent::StartBowDraw()
 	if (checkingForStanceChange || bIsAttacking || bIsDrawingBow)
 		return;
 
-	if (OwnerCharacter->PlayerStats->CurrentStamina < CurrentWeapon->LightAttackStaminaAmount)
-	{
-		OwnerCharacter->PlayerStats->NotifyStaminaExhausted();
-		return;
-	}
-
 	UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance();
 	if (!AnimInstance)
 		return;
@@ -419,7 +413,8 @@ bool UCombatComponent::FireBow()
 			Arrow->ArrowMesh->SetStaticMesh(CurrentWeapon->PreviewArrowMesh);
 		}
 
-		Arrow->InitializeArrow(CurrentWeapon->ArrowDamage, CurrentWeapon->ArrowSpeed, OwnerCharacter);
+		UParticleSystem* ArrowHitEffect = OwnerCharacter->HeldWeaponActor ? OwnerCharacter->HeldWeaponActor->HitEffect : nullptr;
+		Arrow->InitializeArrow(CurrentWeapon->ArrowDamage, CurrentWeapon->ArrowSpeed, OwnerCharacter, ArrowHitEffect);
 	}
 
 	GetWorld()->GetTimerManager().ClearTimer(BowDrawReadyTimer);
