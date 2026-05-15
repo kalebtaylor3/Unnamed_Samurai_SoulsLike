@@ -54,6 +54,7 @@ public:
 	bool bCanReceiveInput = true;
 	bool bInputQueuedThisWindow = false;
 	bool bIsDrawingBow = false;
+	bool bCanFireDrawnBow = false;
 	TQueue<int32> QueuedComboIndices;
 
 	UFUNCTION()
@@ -77,10 +78,11 @@ private:
 	bool bHasJumpedToLoop = false;
 
 	FTimerHandle ChargeLoopTimer;
+	FTimerHandle BowDrawReadyTimer;
 	FTimerHandle StanceChangeCooldownTimer;
 
 	void PlayChargeLoopMontage();
-	void PlayBowDrawLoopMontage();
+	void FinishBowDraw();
 	bool IsBowEquipped() const;
 	bool FireBow();
 	void ShowBowPreviewArrow();

@@ -161,23 +161,27 @@ void UCombatComponent::StartBowDraw()
 		return;
 
 	bIsDrawingBow = true;
+	bCanFireDrawnBow = false;
 	bIsAttacking = true;
 	canRoll = false;
-	ShowBowPreviewArrow();
 
 	AnimInstance->SetRootMotionMode(ERootMotionMode::RootMotionFromMontagesOnly);
 
 	if (CurrentWeapon->BowDrawMontage)
 	{
 		const float DrawDuration = AnimInstance->Montage_Play(CurrentWeapon->BowDrawMontage);
-		if (CurrentWeapon->BowDrawLoopMontage && DrawDuration > 0.0f)
+		if (DrawDuration > 0.0f)
 		{
-			GetWorld()->GetTimerManager().SetTimer(ChargeLoopTimer, this, &UCombatComponent::PlayBowDrawLoopMontage, DrawDuration, false);
+			GetWorld()->GetTimerManager().SetTimer(BowDrawReadyTimer, this, &UCombatComponent::FinishBowDraw, DrawDuration, false);
+		}
+		else
+		{
+			FinishBowDraw();
 		}
 	}
 	else
 	{
-		PlayBowDrawLoopMontage();
+		FinishBowDraw();
 	}
 }
 
@@ -186,7 +190,7 @@ void UCombatComponent::CancelBowDraw()
 	if (!OwnerCharacter || !CurrentWeapon || !bIsDrawingBow)
 		return;
 
-	GetWorld()->GetTimerManager().ClearTimer(ChargeLoopTimer);
+	GetWorld()->GetTimerManager().ClearTimer(BowDrawReadyTimer);
 
 	if (UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance())
 	{
@@ -195,14 +199,11 @@ void UCombatComponent::CancelBowDraw()
 			AnimInstance->Montage_Stop(0.15f, CurrentWeapon->BowDrawMontage);
 		}
 
-		if (CurrentWeapon->BowDrawLoopMontage)
-		{
-			AnimInstance->Montage_Stop(0.15f, CurrentWeapon->BowDrawLoopMontage);
-		}
 	}
 
 	HideBowPreviewArrow();
 	bIsDrawingBow = false;
+	bCanFireDrawnBow = false;
 	bIsAttacking = false;
 	canRoll = true;
 }
@@ -370,26 +371,15 @@ void UCombatComponent::PlayChargeLoopMontage()
 	}
 }
 
-void UCombatComponent::PlayBowDrawLoopMontage()
+void UCombatComponent::FinishBowDraw()
 {
-	if (!OwnerCharacter || !CurrentWeapon || !CurrentWeapon->BowDrawLoopMontage || !bIsDrawingBow)
-		return;
-
-	UAnimInstance* AnimInstance = OwnerCharacter->GetMesh()->GetAnimInstance();
-	if (!AnimInstance)
-		return;
-
-	if (CurrentWeapon->BowDrawMontage)
+	if (!OwnerCharacter || !CurrentWeapon || !IsBowEquipped() || !bIsDrawingBow)
 	{
-		AnimInstance->Montage_Stop(0.0f, CurrentWeapon->BowDrawMontage);
+		return;
 	}
 
-	AnimInstance->SetRootMotionMode(ERootMotionMode::RootMotionFromMontagesOnly);
-	const float LoopDuration = AnimInstance->Montage_Play(CurrentWeapon->BowDrawLoopMontage);
-	if (LoopDuration > 0.0f)
-	{
-		GetWorld()->GetTimerManager().SetTimer(ChargeLoopTimer, this, &UCombatComponent::PlayBowDrawLoopMontage, LoopDuration, false);
-	}
+	bCanFireDrawnBow = true;
+	ShowBowPreviewArrow();
 }
 
 bool UCombatComponent::IsBowEquipped() const
@@ -399,7 +389,7 @@ bool UCombatComponent::IsBowEquipped() const
 
 bool UCombatComponent::FireBow()
 {
-	if (!OwnerCharacter || !CurrentWeapon || !IsBowEquipped() || !bIsDrawingBow)
+	if (!OwnerCharacter || !CurrentWeapon || !IsBowEquipped() || !bIsDrawingBow || !bCanFireDrawnBow)
 		return false;
 
 	if (!CurrentWeapon->ArrowProjectileClass)
@@ -432,7 +422,7 @@ bool UCombatComponent::FireBow()
 		Arrow->InitializeArrow(CurrentWeapon->ArrowDamage, CurrentWeapon->ArrowSpeed, OwnerCharacter);
 	}
 
-	GetWorld()->GetTimerManager().ClearTimer(ChargeLoopTimer);
+	GetWorld()->GetTimerManager().ClearTimer(BowDrawReadyTimer);
 	GetWorld()->GetTimerManager().ClearTimer(OwnerCharacter->PlayerStats->StaminaRegenHandle);
 	HideBowPreviewArrow();
 	OwnerCharacter->PlayerStats->UseStamina(CurrentWeapon->LightAttackStaminaAmount);
@@ -452,11 +442,6 @@ bool UCombatComponent::FireBow()
 			AnimInstance->Montage_Stop(0.0f, CurrentWeapon->BowDrawMontage);
 		}
 
-		if (CurrentWeapon->BowDrawLoopMontage)
-		{
-			AnimInstance->Montage_Stop(0.0f, CurrentWeapon->BowDrawLoopMontage);
-		}
-
 		if (CurrentWeapon->BowFireMontage)
 		{
 			AnimInstance->Montage_Play(CurrentWeapon->BowFireMontage);
@@ -464,6 +449,7 @@ bool UCombatComponent::FireBow()
 	}
 
 	bIsDrawingBow = false;
+	bCanFireDrawnBow = false;
 	bIsAttacking = false;
 	canRoll = true;
 
@@ -605,6 +591,8 @@ void UCombatComponent::InterruptAttack()
 	bIsHoldingCharge = false;
 	bIsLoopingCharge = false;
 	bIsDrawingBow = false;
+	bCanFireDrawnBow = false;
+	GetWorld()->GetTimerManager().ClearTimer(BowDrawReadyTimer);
 	HideBowPreviewArrow();
 	bCanReceiveInput = false;
 	bInputQueuedThisWindow = false;

@@ -87,9 +87,6 @@ public:
 	UAnimMontage* BowDrawMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
-	UAnimMontage* BowDrawLoopMontage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))
 	UAnimMontage* BowFireMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow", meta = (EditCondition = "bIsBow"))

@@ -306,7 +306,7 @@ void UPlayerHUDUI::PlayStaminaDeniedFeedback()
 
 	if (!bCachedStaminaBarStyle)
 	{
-		CachedStaminaBarStyle = StaminaBar->WidgetStyle;
+		CachedStaminaBarStyle = StaminaBar->GetWidgetStyle();
 		bCachedStaminaBarStyle = true;
 	}
 
