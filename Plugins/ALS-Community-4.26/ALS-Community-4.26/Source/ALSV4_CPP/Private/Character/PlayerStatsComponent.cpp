@@ -2,11 +2,15 @@
 
 
 #include "Character/PlayerStatsComponent.h"
+
+#include "Blueprint/UserWidget.h"
 #include "BonfireSaveGame.h"
 #include "AI/EnemyCombatComponent.h"
 #include "MyGameInstance.h"
 #include "Character/ALSBaseCharacter.h"
 #include "Character/InventoryComponent.h"
+#include "GameFramework/PlayerController.h"
+#include "Kismet/GameplayStatics.h"
 
 
 UPlayerStatsComponent::UPlayerStatsComponent()
@@ -106,6 +110,11 @@ void UPlayerStatsComponent::ApplyStaminaRegenTick()
 
 void UPlayerStatsComponent::TakeDamage(float Amount)
 {
+	if (bIsDead)
+	{
+		return;
+	}
+
 	if (bIsInvincible)
 		return; // No damage during i-frames
 
@@ -175,69 +184,70 @@ void UPlayerStatsComponent::TakeDamage(float Amount)
 
 void UPlayerStatsComponent::HandlePlayerDeath()
 {
+	if (bIsDead)
+	{
+		return;
+	}
+
+	bIsDead = true;
+
 	if (AALSBaseCharacter* Player = Cast<AALSBaseCharacter>(GetOwner()))
 	{
-		// === Clear any previous rune drop from GameInstance and SaveGame ===
+		const int32 RunesToDrop = CurrentRunes;
+		const bool bCreateRuneDrop = RunesToDrop > 0;
+		const FVector DropLocation = Player->GetActorLocation();
+
 		if (UMyGameInstance* GI = Cast<UMyGameInstance>(UGameplayStatics::GetGameInstance(this)))
 		{
-			if (GI->bHasRuneDrop)
-			{
-				GI->bHasRuneDrop = false;
-				GI->DroppedRuneAmount = 0;
-				GI->DroppedRuneLocation = FVector::ZeroVector;
-
-				if (UGameplayStatics::DoesSaveGameExist(TEXT("BonfireSlot"), 0))
-				{
-					if (UBonfireSaveGame* ExistingSave = Cast<UBonfireSaveGame>(
-						UGameplayStatics::LoadGameFromSlot(TEXT("BonfireSlot"), 0)))
-					{
-						ExistingSave->bHasRuneDrop = false;
-						ExistingSave->DroppedRuneAmount = 0;
-						ExistingSave->DroppedRuneLocation = FVector::ZeroVector;
-						UGameplayStatics::SaveGameToSlot(ExistingSave, TEXT("BonfireSlot"), 0);
-					}
-				}
-			}
+			GI->bWasKilled = true;
+			GI->bHasRuneDrop = bCreateRuneDrop;
+			GI->DroppedRuneAmount = bCreateRuneDrop ? RunesToDrop : 0;
+			GI->DroppedRuneLocation = bCreateRuneDrop ? DropLocation : FVector::ZeroVector;
 		}
 
-		// === Handle dropping current runes ===
-		if (CurrentRunes > 0)
+		CurrentRunes = 0;
+		OnRunesChanged.Broadcast(CurrentRunes, GetRunesRequiredForLevel(CurrentLevel));
+
+		if (Player->PlayerHUDWidget)
 		{
-			FVector DropLocation = Player->GetActorLocation();
-			int32 RunesToDrop = CurrentRunes;
+			Player->PlayerHUDWidget->UpdateRunes(CurrentRunes);
+		}
 
-			// Clear player runes
-			CurrentRunes = 0;
+		UBonfireSaveGame* SaveData = nullptr;
+		if (UGameplayStatics::DoesSaveGameExist(TEXT("BonfireSlot"), 0))
+		{
+			SaveData = Cast<UBonfireSaveGame>(UGameplayStatics::LoadGameFromSlot(TEXT("BonfireSlot"), 0));
+		}
 
-			// Save new rune drop to GameInstance
-			if (UMyGameInstance* GI = Cast<UMyGameInstance>(UGameplayStatics::GetGameInstance(this)))
+		if (!SaveData)
+		{
+			SaveData = Cast<UBonfireSaveGame>(UGameplayStatics::CreateSaveGameObject(UBonfireSaveGame::StaticClass()));
+		}
+
+		if (SaveData)
+		{
+			SaveData->bHasRuneDrop = bCreateRuneDrop;
+			SaveData->DroppedRuneAmount = bCreateRuneDrop ? RunesToDrop : 0;
+			SaveData->DroppedRuneLocation = bCreateRuneDrop ? DropLocation : FVector::ZeroVector;
+			SaveData->CurrentRunes = 0;
+
+			if (SaveData->LevelName.IsEmpty())
 			{
-				GI->bWasKilled = true;
-				GI->bHasRuneDrop = true;
-				GI->DroppedRuneAmount = RunesToDrop;
-				GI->DroppedRuneLocation = DropLocation;
+				SaveData->LevelName = UGameplayStatics::GetCurrentLevelName(this, true);
 			}
 
-			// Save new rune drop to disk
-			UBonfireSaveGame* SaveData = nullptr;
+			UGameplayStatics::SaveGameToSlot(SaveData, TEXT("BonfireSlot"), 0);
+			UE_LOG(LogTemp, Warning, TEXT("Death rune state saved. HasDrop=%s Amount=%d Location=%s"),
+				bCreateRuneDrop ? TEXT("true") : TEXT("false"),
+				bCreateRuneDrop ? RunesToDrop : 0,
+				*(bCreateRuneDrop ? DropLocation : FVector::ZeroVector).ToString());
 
-			if (UGameplayStatics::DoesSaveGameExist(TEXT("BonfireSlot"), 0))
+			if (GEngine)
 			{
-				SaveData = Cast<UBonfireSaveGame>(UGameplayStatics::LoadGameFromSlot(TEXT("BonfireSlot"), 0));
-			}
-
-			if (!SaveData)
-			{
-				SaveData = Cast<UBonfireSaveGame>(UGameplayStatics::CreateSaveGameObject(UBonfireSaveGame::StaticClass()));
-			}
-
-			if (SaveData)
-			{
-				SaveData->bHasRuneDrop = true;
-				SaveData->DroppedRuneAmount = RunesToDrop;
-				SaveData->DroppedRuneLocation = DropLocation;
-				SaveData->CurrentRunes = 0; // Runes are lost
-				UGameplayStatics::SaveGameToSlot(SaveData, TEXT("BonfireSlot"), 0);
+				GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Cyan,
+					FString::Printf(TEXT("Death rune drop: %s / %d"),
+						bCreateRuneDrop ? TEXT("true") : TEXT("false"),
+						bCreateRuneDrop ? RunesToDrop : 0));
 			}
 		}
 	}
@@ -246,10 +256,14 @@ void UPlayerStatsComponent::HandlePlayerDeath()
 
 	if (DeathScreenClass && !ActiveDeathScreen)
 	{
-		ActiveDeathScreen = CreateWidget<UUserWidget>(GetWorld(), DeathScreenClass);
+		APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+		ActiveDeathScreen = PC
+			? CreateWidget<UUserWidget>(PC, DeathScreenClass)
+			: CreateWidget<UUserWidget>(GetWorld(), DeathScreenClass);
+
 		if (ActiveDeathScreen)
 		{
-			ActiveDeathScreen->AddToViewport();
+			ActiveDeathScreen->AddToViewport(100);
 		}
 	}
 }
@@ -272,18 +286,7 @@ void UPlayerStatsComponent::LoadGameFromBonfire()
 	}
 
 	FString CurrentMapName = UGameplayStatics::GetCurrentLevelName(this, true);
-
-	// ??? If bonfire data is for a different level than we're in and player has *never* used a bonfire here, just reload
-	if (SaveData->LevelName != CurrentMapName)
-	{
-		// If this is a fresh death in a level where no bonfire was touched
-		if (!UGameplayStatics::GetStreamingLevel(GetWorld(), FName(*SaveData->LevelName)))
-		{
-			// ?? Just reload current map from scratch
-			UGameplayStatics::OpenLevel(this, FName(*CurrentMapName));
-			return;
-		}
-	}
+	const FString TargetLevel = SaveData->LevelName.IsEmpty() ? CurrentMapName : SaveData->LevelName;
 
 	// ? Store data to GameInstance for soft reset
 	if (UMyGameInstance* MyGI = Cast<UMyGameInstance>(UGameplayStatics::GetGameInstance(this)))
@@ -298,7 +301,15 @@ void UPlayerStatsComponent::LoadGameFromBonfire()
 		MyGI->SavedVigor = SaveData->VigorLevel;
 		MyGI->SavedMind = SaveData->MindLevel;
 		MyGI->SavedEndurance = SaveData->EnduranceLevel;
-		MyGI->SavedLevelName = SaveData->LevelName;
+		MyGI->SavedLevelName = TargetLevel;
+		MyGI->bHasRuneDrop = SaveData->bHasRuneDrop;
+		MyGI->DroppedRuneAmount = SaveData->DroppedRuneAmount;
+		MyGI->DroppedRuneLocation = SaveData->DroppedRuneLocation;
+
+		UE_LOG(LogTemp, Warning, TEXT("Prepared bonfire reload. Save rune drop: HasDrop=%s Amount=%d Location=%s"),
+			SaveData->bHasRuneDrop ? TEXT("true") : TEXT("false"),
+			SaveData->DroppedRuneAmount,
+			*SaveData->DroppedRuneLocation.ToString());
 
 		// ? Inventory
 		if (const AALSBaseCharacter* OwnerChar = Cast<AALSBaseCharacter>(GetOwner()))
@@ -313,10 +324,6 @@ void UPlayerStatsComponent::LoadGameFromBonfire()
 	}
 
 	// ?? Reload level (same or saved)
-	const FString TargetLevel = (SaveData->LevelName != CurrentMapName)
-		? SaveData->LevelName
-		: CurrentMapName;
-
 	UGameplayStatics::OpenLevel(this, FName(*TargetLevel));
 }
 
@@ -392,6 +399,8 @@ void UPlayerStatsComponent::ApplyFPTick()
 
 void UPlayerStatsComponent::SetMaxValues(float NewHealth, float NewFP, float NewStamina)
 {
+	bIsDead = false;
+
 	MaxHealth = NewHealth;
 	MaxFP = NewFP;
 	MaxStamina = NewStamina;
@@ -547,6 +556,8 @@ void UPlayerStatsComponent::AddRunes(int32 Amount)
 
 void UPlayerStatsComponent::RecalculateDerivedStats()
 {
+	bIsDead = false;
+
 	// === Base Stats (used at level 1) ===
 	const float BaseHealth = 448.f;
 	const float BaseFP = 62.f;

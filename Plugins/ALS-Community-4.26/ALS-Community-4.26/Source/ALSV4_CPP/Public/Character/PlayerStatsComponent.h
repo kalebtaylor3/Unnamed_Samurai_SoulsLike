@@ -7,6 +7,7 @@
 #include "Character/CombatComponent.h"
 #include "PlayerStatsComponent.generated.h"
 
+class UUserWidget;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_EightParams(FOnStatsChanged, float, CurrentHealth, float, MaxHealth, float, CurrentFP, float, MaxFP, float, CurrentStamina, float, MaxStamina, int32, CurrentLevel, int32, MaxLevel);
 
@@ -63,6 +64,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 	FOnPlayerDied OnPlayerDied;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Stats")
+	bool bIsDead = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	UAnimMontage* HitReactMontage;

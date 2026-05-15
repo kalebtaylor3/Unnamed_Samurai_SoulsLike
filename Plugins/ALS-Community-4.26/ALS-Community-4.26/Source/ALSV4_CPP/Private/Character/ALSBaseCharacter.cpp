@@ -163,9 +163,85 @@ void AALSBaseCharacter::BeginPlay()
 		if (UMyGameInstance* MyGI = Cast<UMyGameInstance>(UGameplayStatics::GetGameInstance(this)))
 		{
 			FString CurrentLevel = UGameplayStatics::GetCurrentLevelName(this, true);
+			auto SpawnRuneDrop = [this](int32 RuneAmount, const FVector& DropLocation, const TCHAR* Source)
+			{
+				if (RuneAmount <= 0)
+				{
+					return;
+				}
+
+				TSubclassOf<ARuneDropActor> DropClass = RuneDropClass;
+				if (!DropClass)
+				{
+					DropClass = ARuneDropActor::StaticClass();
+				}
+
+				if (!RuneDropClass)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("Rune drop class is not assigned on %s. Spawning base ARuneDropActor from %s."), *GetName(), Source);
+					if (GEngine)
+					{
+						GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Yellow, TEXT("RuneDropClass missing on player. Spawning base drop."));
+					}
+				}
+
+				FActorSpawnParameters SpawnParams;
+				SpawnParams.Owner = this;
+				SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+				const FVector SpawnLocation = DropLocation + FVector(0.0f, 0.0f, 35.0f);
+				ARuneDropActor* Drop = GetWorld()->SpawnActor<ARuneDropActor>(
+					DropClass,
+					SpawnLocation,
+					FRotator::ZeroRotator,
+					SpawnParams
+				);
+
+				if (Drop)
+				{
+					Drop->RuneAmount = RuneAmount;
+					UE_LOG(LogTemp, Warning, TEXT("Spawned rune drop from %s. Amount=%d Location=%s Class=%s"),
+						Source,
+						RuneAmount,
+						*SpawnLocation.ToString(),
+						*GetNameSafe(DropClass.Get()));
+
+					if (GEngine)
+					{
+						GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green,
+							FString::Printf(TEXT("Spawned rune drop: %d"), RuneAmount));
+					}
+				}
+				else
+				{
+					UE_LOG(LogTemp, Error, TEXT("Failed to spawn rune drop from %s. Amount=%d Location=%s Class=%s"),
+						Source,
+						RuneAmount,
+						*SpawnLocation.ToString(),
+						*GetNameSafe(DropClass.Get()));
+
+					if (GEngine)
+					{
+						GEngine->AddOnScreenDebugMessage(-1, 7.0f, FColor::Red, TEXT("Failed to spawn rune drop. Check Output Log."));
+					}
+				}
+			};
 
 			if (MyGI->bShouldRestoreFromBonfire)
 			{
+				UE_LOG(LogTemp, Warning, TEXT("Bonfire restore requested. GI rune drop: HasDrop=%s Amount=%d Location=%s"),
+					MyGI->bHasRuneDrop ? TEXT("true") : TEXT("false"),
+					MyGI->DroppedRuneAmount,
+					*MyGI->DroppedRuneLocation.ToString());
+
+				if (GEngine)
+				{
+					GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Cyan,
+						FString::Printf(TEXT("GI rune drop restore: %s / %d"),
+							MyGI->bHasRuneDrop ? TEXT("true") : TEXT("false"),
+							MyGI->DroppedRuneAmount));
+				}
+
 				// Soft load (e.g., player died)
 				if (MyGI->SavedLevelName == CurrentLevel)
 				{
@@ -195,18 +271,7 @@ void AALSBaseCharacter::BeginPlay()
 
 				if (MyGI->bHasRuneDrop && MyGI->DroppedRuneAmount > 0)
 				{
-					FActorSpawnParameters SpawnParams;
-					ARuneDropActor* Drop = GetWorld()->SpawnActor<ARuneDropActor>(
-						RuneDropClass, // Make this a UPROPERTY(EditDefaultsOnly) on AALSBaseCharacter
-						MyGI->DroppedRuneLocation,
-						FRotator::ZeroRotator,
-						SpawnParams
-					);
-
-					if (Drop)
-					{
-						Drop->RuneAmount = MyGI->DroppedRuneAmount;
-					}
+					SpawnRuneDrop(MyGI->DroppedRuneAmount, MyGI->DroppedRuneLocation, TEXT("GameInstance"));
 				}
 
 				MyGI->bShouldRestoreFromBonfire = false;
@@ -217,6 +282,19 @@ void AALSBaseCharacter::BeginPlay()
 				// Hard load (from disk)
 				if (UBonfireSaveGame* SaveData = Cast<UBonfireSaveGame>(UGameplayStatics::LoadGameFromSlot(TEXT("BonfireSlot"), 0)))
 				{
+					UE_LOG(LogTemp, Warning, TEXT("Hard save restore. Save rune drop: HasDrop=%s Amount=%d Location=%s"),
+						SaveData->bHasRuneDrop ? TEXT("true") : TEXT("false"),
+						SaveData->DroppedRuneAmount,
+						*SaveData->DroppedRuneLocation.ToString());
+
+					if (GEngine)
+					{
+						GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Cyan,
+							FString::Printf(TEXT("Save rune drop restore: %s / %d"),
+								SaveData->bHasRuneDrop ? TEXT("true") : TEXT("false"),
+								SaveData->DroppedRuneAmount));
+					}
+
 					if (SaveData->LevelName == CurrentLevel)
 					{
 						SetActorLocation(SaveData->PlayerLocation);
@@ -245,18 +323,7 @@ void AALSBaseCharacter::BeginPlay()
 
 					if (SaveData->bHasRuneDrop && SaveData->DroppedRuneAmount > 0)
 					{
-						FActorSpawnParameters SpawnParams;
-						ARuneDropActor* Drop = GetWorld()->SpawnActor<ARuneDropActor>(
-							RuneDropClass, // Make this a UPROPERTY(EditDefaultsOnly) on AALSBaseCharacter
-							SaveData->DroppedRuneLocation,
-							FRotator::ZeroRotator,
-							SpawnParams
-						);
-
-						if (Drop)
-						{
-							Drop->RuneAmount = SaveData->DroppedRuneAmount;
-						}
+						SpawnRuneDrop(SaveData->DroppedRuneAmount, SaveData->DroppedRuneLocation, TEXT("SaveGame"));
 					}
 				}
 			}
