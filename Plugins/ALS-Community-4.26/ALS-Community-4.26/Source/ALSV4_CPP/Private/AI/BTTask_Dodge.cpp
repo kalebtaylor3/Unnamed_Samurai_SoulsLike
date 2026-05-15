@@ -8,6 +8,17 @@
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Engine/World.h"
 
+namespace
+{
+	void ClearWasHit(UBehaviorTreeComponent& OwnerComp)
+	{
+		if (UBlackboardComponent* Blackboard = OwnerComp.GetBlackboardComponent())
+		{
+			Blackboard->SetValueAsBool("WasHit", false);
+		}
+	}
+}
+
 UBTTask_Dodge::UBTTask_Dodge()
 {
 	NodeName = "Dodge";
@@ -25,19 +36,24 @@ EBTNodeResult::Type UBTTask_Dodge::ExecuteTask(UBehaviorTreeComponent& OwnerComp
 
 			if (CombatComponent && CombatComponent->HasDodgeMontage())
 			{
+				CombatComponent->FaceTargetOnce();
+
 				if (!ShouldAttemptDodge(OwnerComp, Enemy))
 				{
+					ClearWasHit(OwnerComp);
 					return bSucceedWhenSkippingDodge ? EBTNodeResult::Succeeded : EBTNodeResult::Failed;
 				}
 
 				if (!CombatComponent->TryPlayDodgeMontage())
 				{
+					ClearWasHit(OwnerComp);
 					return EBTNodeResult::Failed;
 				}
 
 				UAnimMontage* ActiveDodgeMontage = CombatComponent->GetActiveDodgeMontage();
 				if (!ActiveDodgeMontage)
 				{
+					ClearWasHit(OwnerComp);
 					return EBTNodeResult::Failed;
 				}
 
@@ -51,6 +67,7 @@ EBTNodeResult::Type UBTTask_Dodge::ExecuteTask(UBehaviorTreeComponent& OwnerComp
 		}
 	}
 
+	ClearWasHit(OwnerComp);
 	return EBTNodeResult::Failed;
 }
 
@@ -58,6 +75,7 @@ void UBTTask_Dodge::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemor
 {
 	if (!bIsWaitingForMontageEnd || !CombatComponent)
 	{
+		ClearWasHit(OwnerComp);
 		FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
 		return;
 	}
@@ -72,6 +90,8 @@ void UBTTask_Dodge::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemor
 		{
 			OwnerComp.GetBlackboardComponent()->SetValueAsBool("ShouldDodge", false);
 		}
+
+		ClearWasHit(OwnerComp);
 	}
 }
 

@@ -37,16 +37,6 @@ void UEnemyHealthComponent::TakeDamage(float DamageAmount)
 			if (UBlackboardComponent* BB = AIController->GetBlackboardComponent())
 			{
 				BB->SetValueAsBool("WasHit", true);
-
-				// === Reset WasHit after delay ===
-				FTimerHandle ResetHitHandle;
-				GetWorld()->GetTimerManager().SetTimer(ResetHitHandle, [BB]()
-					{
-						if (BB)
-						{
-							BB->SetValueAsBool("WasHit", false);
-						}
-					}, 0.5f, false); // Adjust duration as needed
 			}
 		}
 	}
