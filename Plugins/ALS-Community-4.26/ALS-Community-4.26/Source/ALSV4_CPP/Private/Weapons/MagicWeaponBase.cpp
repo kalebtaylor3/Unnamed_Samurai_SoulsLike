@@ -3,6 +3,7 @@
 #include "Character/ALSBaseCharacter.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "Weapons/BaseCastProjectile.h"
 #include "Weapons/HeldWeaponBase.h"
 #include "Weapons/SpellBase.h"
 
@@ -46,7 +47,13 @@ bool UMagicWeaponBase::SpawnMagicActor(AALSBaseCharacter* Caster, TSubclassOf<AA
 	SpawnParams.Instigator = Caster;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
-	return Caster->GetWorld()->SpawnActor<AActor>(ActorClass, SpawnLocation, SpawnRotation, SpawnParams) != nullptr;
+	AActor* SpawnedActor = Caster->GetWorld()->SpawnActor<AActor>(ActorClass, SpawnLocation, SpawnRotation, SpawnParams);
+	if (ABaseCastProjectile* MagicProjectile = Cast<ABaseCastProjectile>(SpawnedActor))
+	{
+		MagicProjectile->InitializeMagicProjectile(Caster);
+	}
+
+	return SpawnedActor != nullptr;
 }
 
 FVector UMagicWeaponBase::GetCastSpawnLocation(AALSBaseCharacter* Caster, FName SocketName, FVector SpawnOffset) const

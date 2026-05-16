@@ -45,6 +45,9 @@ void AALSCharacter::AttachToHand(UStaticMesh* NewStaticMesh, USkeletalMesh* NewS
 	// 🔥 Check if we should spawn a HeldWeaponBase actor
 	if (Inventory && Inventory->CurrentWeapon && Inventory->CurrentWeapon->HeldActorClass)
 	{
+		LocationOffset = Inventory->CurrentWeapon->PlacementPosition;
+		RotationOffset = Inventory->CurrentWeapon->PlacementRotation;
+
 		HeldWeaponActor = GetWorld()->SpawnActor<AHeldWeaponBase>(Inventory->CurrentWeapon->HeldActorClass);
 		if (HeldWeaponActor)
 		{
