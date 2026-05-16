@@ -265,8 +265,11 @@ void AALSBaseCharacter::BeginPlay()
 				{
 					Inventory->EquippedWeapons = MyGI->SavedEquippedWeapons;
 					Inventory->BackpackWeapons = MyGI->SavedBackpackWeapons;
+					Inventory->EquippedSpells = MyGI->SavedEquippedSpells;
+					Inventory->BackpackSpells = MyGI->SavedBackpackSpells;
 					Inventory->UpdateInventoryUI();
 					Inventory->EquipWeaponByIndex(MyGI->SavedEquippedIndex);
+					Inventory->EquipSpellByIndex(MyGI->SavedEquippedSpellIndex);
 				}
 
 				if (MyGI->bHasRuneDrop && MyGI->DroppedRuneAmount > 0)
@@ -317,8 +320,11 @@ void AALSBaseCharacter::BeginPlay()
 					{
 						Inventory->EquippedWeapons = SaveData->SavedEquippedWeapons;
 						Inventory->BackpackWeapons = SaveData->SavedBackpackWeapons;
+						Inventory->EquippedSpells = SaveData->SavedEquippedSpells;
+						Inventory->BackpackSpells = SaveData->SavedBackpackSpells;
 						Inventory->UpdateInventoryUI();
-						Inventory->EquipWeaponByIndex(0); // Default to first weapon
+						Inventory->EquipWeaponByIndex(SaveData->SavedEquippedIndex);
+						Inventory->EquipSpellByIndex(SaveData->SavedEquippedSpellIndex);
 					}
 
 					if (SaveData->bHasRuneDrop && SaveData->DroppedRuneAmount > 0)

@@ -329,6 +329,9 @@ private:
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = true), Category = "ALS|Character States")
 	bool LongSword_ = false;
 
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = true), Category = "ALS|Character States")
+	bool Staff_ = false;
+
 public:
 	FALSOverlayState()
 	{
@@ -349,6 +352,7 @@ public:
 	const bool& Katana() const { return Katana_; }
 	const bool& GreatSword() const { return GreatSword_; }
 	const bool& LongSword() const { return LongSword_; }
+	const bool& Staff() const { return Staff_; }
 	const bool& Binoculars() const { return Binoculars_; }
 	const bool& Box() const { return Box_; }
 	const bool& Barrel() const { return Barrel_; }
@@ -371,6 +375,7 @@ public:
 		Katana_ = State == EALSOverlayState::Katana;
 		GreatSword_ = State == EALSOverlayState::GreatSword;
 		LongSword_ = State == EALSOverlayState::LongSword;
+		Staff_ = State == EALSOverlayState::Staff;
 		Binoculars_ = State == EALSOverlayState::Binoculars;
 		Box_ = State == EALSOverlayState::Box;
 		Barrel_ = State == EALSOverlayState::Barrel;

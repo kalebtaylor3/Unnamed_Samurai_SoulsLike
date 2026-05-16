@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"
 #include "Weapons/WeaponBase.h"
+#include "Weapons/SpellBase.h"
 #include "BonfireSaveGame.generated.h"
 
 USTRUCT()
@@ -76,6 +77,16 @@ public:
 
 	UPROPERTY(BlueprintReadWrite)
 	int32 SavedEquippedIndex = -1;
+
+	// Inventory spells
+	UPROPERTY()
+	TArray<TSubclassOf<USpellBase>> SavedEquippedSpells;
+
+	UPROPERTY()
+	TArray<TSubclassOf<USpellBase>> SavedBackpackSpells;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 SavedEquippedSpellIndex = -1;
 
 	UPROPERTY(BlueprintReadWrite)
 	bool bHasRuneDrop = false;

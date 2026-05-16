@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Weapons/WeaponBase.h"
+#include "Weapons/SpellBase.h"
 #include "Character/UI/ItemPickupNotificationWidget.h"
 #include "LootDropActor.generated.h"
 
@@ -48,6 +49,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Loot")
 	TSubclassOf<UWeaponBase> WeaponClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Loot")
+	TSubclassOf<USpellBase> SpellClass;
 
 	/** Collider for detecting overlap */
 	UPROPERTY(VisibleAnywhere, Category = "Components")

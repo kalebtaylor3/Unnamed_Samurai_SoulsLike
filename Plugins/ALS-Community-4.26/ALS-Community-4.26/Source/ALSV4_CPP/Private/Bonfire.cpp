@@ -217,6 +217,9 @@ void ABonfire::SaveGameState(AALSBaseCharacter* Character)
 		SaveData->SavedEquippedWeapons = Character->Inventory->EquippedWeapons;
 		SaveData->SavedBackpackWeapons = Character->Inventory->BackpackWeapons;
 		SaveData->SavedEquippedIndex = Character->Inventory->EquippedIndex;
+		SaveData->SavedEquippedSpells = Character->Inventory->EquippedSpells;
+		SaveData->SavedBackpackSpells = Character->Inventory->BackpackSpells;
+		SaveData->SavedEquippedSpellIndex = Character->Inventory->EquippedSpellIndex;
 	}
 
 	if (UMyGameInstance* GI = Cast<UMyGameInstance>(UGameplayStatics::GetGameInstance(this)))

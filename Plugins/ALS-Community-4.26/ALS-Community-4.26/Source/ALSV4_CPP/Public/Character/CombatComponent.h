@@ -25,6 +25,12 @@ public:
 	void LightAttack();
 	void StartBowDraw();
 	void CancelBowDraw();
+	UFUNCTION(BlueprintCallable, Category = "Magic")
+	void CastBaseMagic();
+
+	UFUNCTION(BlueprintCallable, Category = "Magic")
+	void CastEquippedSpell();
+
 	void HeavyAttackCheck(bool bValue);
 	void StartChargeHeavyAttack();
 	void ReleaseChargeHeavyAttack();
@@ -80,10 +86,16 @@ private:
 	FTimerHandle ChargeLoopTimer;
 	FTimerHandle BowDrawReadyTimer;
 	FTimerHandle StanceChangeCooldownTimer;
+	FTimerHandle MagicCastEndTimer;
 
 	void PlayChargeLoopMontage();
 	void FinishBowDraw();
 	bool IsBowEquipped() const;
+	bool IsMagicWeaponEquipped() const;
+	bool SpendMagicCosts(float FPCost, float StaminaCost) const;
+	float PlayMagicCastMontage(UAnimMontage* Montage);
+	void BeginMagicCast(float CastDuration);
+	void FinishMagicCast();
 	bool FireBow();
 	void ShowBowPreviewArrow();
 	void HideBowPreviewArrow();

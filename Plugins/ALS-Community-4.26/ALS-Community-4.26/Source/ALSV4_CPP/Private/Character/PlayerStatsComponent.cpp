@@ -319,6 +319,9 @@ void UPlayerStatsComponent::LoadGameFromBonfire()
 				MyGI->SavedBackpackWeapons = Inventory->BackpackWeapons;
 				MyGI->SavedEquippedWeapons = Inventory->EquippedWeapons;
 				MyGI->SavedEquippedIndex = Inventory->EquippedIndex;
+				MyGI->SavedBackpackSpells = Inventory->BackpackSpells;
+				MyGI->SavedEquippedSpells = Inventory->EquippedSpells;
+				MyGI->SavedEquippedSpellIndex = Inventory->EquippedSpellIndex;
 			}
 		}
 	}

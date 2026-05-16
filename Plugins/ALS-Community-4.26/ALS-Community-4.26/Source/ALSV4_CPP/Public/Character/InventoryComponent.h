@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Weapons/WeaponBase.h"
+#include "Weapons/SpellBase.h"
 #include "Character/UI/DragItemIconWidget.h"
 #include "InventoryComponent.generated.h"
 
@@ -58,6 +59,30 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
 	void RefreshEquippedWeaponsFromBackpack();
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spells")
+	TArray<TSubclassOf<USpellBase>> BackpackSpells;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spells")
+	TArray<TSubclassOf<USpellBase>> EquippedSpells;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Spells")
+	USpellBase* CurrentSpell;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Spells")
+	int32 EquippedSpellIndex = -1;
+
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	void EquipSpellByIndex(int32 Index);
+
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	void CycleNextSpell();
+
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	void RefreshEquippedSpellsFromBackpack();
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Inventory")
+	USpellBase* GetEquippedSpell() const;
 
 	FTimerHandle SwapCooldownTimer;
 	bool bSwapCooldownActive = false;

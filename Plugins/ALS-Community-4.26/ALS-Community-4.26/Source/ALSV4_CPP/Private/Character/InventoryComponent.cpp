@@ -23,6 +23,7 @@ void UInventoryComponent::BeginPlay()
 
 	// ...
 	RefreshEquippedWeaponsFromBackpack();
+	RefreshEquippedSpellsFromBackpack();
 	FTimerHandle DelayHandle;
 	GetWorld()->GetTimerManager().SetTimer(DelayHandle, this, &UInventoryComponent::UpdateInventoryUI, 0.1f, false);
 }
@@ -156,6 +157,88 @@ void UInventoryComponent::RefreshEquippedWeaponsFromBackpack()
 	{
 		BackpackWeapons.RemoveAt(Index);
 	}
+}
+
+void UInventoryComponent::EquipSpellByIndex(int32 Index)
+{
+	EquippedSpellIndex = Index;
+
+	if (!EquippedSpells.IsValidIndex(Index) || !EquippedSpells[Index])
+	{
+		CurrentSpell = nullptr;
+		if (AALSBaseCharacter* OwnerChar = Cast<AALSBaseCharacter>(GetOwner()))
+		{
+			if (OwnerChar->PlayerHUDWidget)
+			{
+				OwnerChar->PlayerHUDWidget->UpdateSpellIcon(nullptr);
+			}
+		}
+		SaveInventory();
+		return;
+	}
+
+	CurrentSpell = NewObject<USpellBase>(this, EquippedSpells[Index]);
+	if (AALSBaseCharacter* OwnerChar = Cast<AALSBaseCharacter>(GetOwner()))
+	{
+		if (OwnerChar->PlayerHUDWidget && CurrentSpell)
+		{
+			if (CurrentSpell->SpellIconSprite)
+			{
+				OwnerChar->PlayerHUDWidget->UpdateSpellIconSprite(CurrentSpell->SpellIconSprite);
+			}
+			else
+			{
+				OwnerChar->PlayerHUDWidget->UpdateSpellIcon(CurrentSpell->SpellIcon);
+			}
+		}
+	}
+	SaveInventory();
+}
+
+void UInventoryComponent::CycleNextSpell()
+{
+	const int32 TotalSlots = EquippedSpells.Num() + 1; // +1 for no spell selected
+	if (TotalSlots <= 0)
+	{
+		EquipSpellByIndex(-1);
+		return;
+	}
+
+	EquippedSpellIndex = (EquippedSpellIndex + 1) % TotalSlots;
+	EquipSpellByIndex(EquippedSpellIndex);
+}
+
+void UInventoryComponent::RefreshEquippedSpellsFromBackpack()
+{
+	EquippedSpells.Empty();
+
+	const int32 MaxEquipped = 4;
+	TSet<int32> EquippedIndices;
+
+	for (int32 i = 0; i < BackpackSpells.Num(); ++i)
+	{
+		if (EquippedSpells.Num() >= MaxEquipped)
+		{
+			break;
+		}
+
+		if (BackpackSpells[i])
+		{
+			EquippedSpells.Add(BackpackSpells[i]);
+			EquippedIndices.Add(i);
+		}
+	}
+
+	EquippedIndices.Sort([](int32 A, int32 B) { return B < A; });
+	for (int32 Index : EquippedIndices)
+	{
+		BackpackSpells.RemoveAt(Index);
+	}
+}
+
+USpellBase* UInventoryComponent::GetEquippedSpell() const
+{
+	return CurrentSpell;
 }
 
 
@@ -517,6 +600,9 @@ void UInventoryComponent::SaveInventory()
 	SaveData->SavedEquippedWeapons = EquippedWeapons;
 	SaveData->SavedBackpackWeapons = BackpackWeapons;
 	SaveData->SavedEquippedIndex = EquippedIndex;
+	SaveData->SavedEquippedSpells = EquippedSpells;
+	SaveData->SavedBackpackSpells = BackpackSpells;
+	SaveData->SavedEquippedSpellIndex = EquippedSpellIndex;
 
 	// ? Save back to the slot
 	UGameplayStatics::SaveGameToSlot(SaveData, TEXT("BonfireSlot"), 0);

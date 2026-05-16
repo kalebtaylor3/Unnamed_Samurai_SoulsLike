@@ -428,6 +428,26 @@ void AALSPlayerController::FlaskChangeAction(const FInputActionValue& Value)
 	}
 }
 
+void AALSPlayerController::SpellChangeAction(const FInputActionValue& Value)
+{
+	if (ShouldIgnoreGameplayInput())
+		return;
+
+	if (PossessedCharacter->bIsResting)
+		return;
+
+	if (PossessedCharacter && PossessedCharacter->Inventory)
+	{
+		if (PossessedCharacter->Inventory->bIsInventoryOpen)
+			return;
+
+		if (PossessedCharacter->CombatSystem && PossessedCharacter->CombatSystem->bIsAttacking)
+			return;
+
+		PossessedCharacter->Inventory->CycleNextSpell();
+	}
+}
+
 
 void AALSPlayerController::UsePotionAction(const FInputActionValue& Value)
 {
@@ -537,6 +557,23 @@ void AALSPlayerController::AshOfWarAction(const FInputActionValue& Value)
 	{
 		PossessedCharacter->CombatSystem->UseAshOfWar();
 		PossessedCharacter->PlayerStats->UseFP(25.0f);
+	}
+}
+
+void AALSPlayerController::CastEquippedSpellAction(const FInputActionValue& Value)
+{
+	if (ShouldIgnoreGameplayInput())
+		return;
+
+	if (PossessedCharacter->bIsResting)
+		return;
+
+	if (PossessedCharacter->Inventory && PossessedCharacter->Inventory->bIsInventoryOpen)
+		return;
+
+	if (PossessedCharacter && PossessedCharacter->CombatSystem)
+	{
+		PossessedCharacter->CombatSystem->CastEquippedSpell();
 	}
 }
 

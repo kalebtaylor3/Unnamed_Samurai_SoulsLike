@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
 #include "Weapons/WeaponBase.h"
+#include "Weapons/SpellBase.h"
 #include "MyGameInstance.generated.h"
 
 /**
@@ -57,6 +58,15 @@ public:
 
 	UPROPERTY(BlueprintReadWrite)
 	int32 SavedEquippedIndex = -1;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<TSubclassOf<USpellBase>> SavedBackpackSpells;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<TSubclassOf<USpellBase>> SavedEquippedSpells;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 SavedEquippedSpellIndex = -1;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Bonfire")
 	bool bWasKilled = false;

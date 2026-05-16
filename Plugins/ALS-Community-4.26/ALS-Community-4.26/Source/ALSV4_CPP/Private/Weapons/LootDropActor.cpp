@@ -112,49 +112,99 @@ void ALootDropActor::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AAct
 
 void ALootDropActor::GiveLootToPlayer(AALSBaseCharacter* Player)
 {
-	if (!Player || !WeaponClass) return;
+	if (!Player || (!WeaponClass && !SpellClass)) return;
 
 	if (UInventoryComponent* Inventory = Player->FindComponentByClass<UInventoryComponent>())
 	{
-		Inventory->BackpackWeapons.Add(WeaponClass);
+		FText PickupName = FText::FromString(TEXT("Item"));
+		UTexture2D* PickupIcon = nullptr;
+		UPaperSprite* PickupIconSprite = nullptr;
+
+		if (WeaponClass)
+		{
+			Inventory->BackpackWeapons.Add(WeaponClass);
+
+			if (UWeaponBase* WeaponCDO = WeaponClass->GetDefaultObject<UWeaponBase>())
+			{
+				PickupName = FText::FromName(WeaponCDO->WeaponName);
+				PickupIcon = WeaponCDO->WeaponIcon;
+				PickupIconSprite = WeaponCDO->WeaponIconSprite;
+			}
+		}
+		else if (SpellClass)
+		{
+			const int32 MaxEquippedSpells = 4;
+			int32 EquippedSlot = INDEX_NONE;
+
+			for (int32 Index = 0; Index < MaxEquippedSpells; ++Index)
+			{
+				if (!Inventory->EquippedSpells.IsValidIndex(Index))
+				{
+					Inventory->EquippedSpells.SetNum(Index + 1);
+				}
+
+				if (!Inventory->EquippedSpells[Index])
+				{
+					EquippedSlot = Index;
+					break;
+				}
+			}
+
+			if (EquippedSlot != INDEX_NONE)
+			{
+				Inventory->EquippedSpells[EquippedSlot] = SpellClass;
+				if (!Inventory->CurrentSpell)
+				{
+					Inventory->EquipSpellByIndex(EquippedSlot);
+				}
+			}
+			else
+			{
+				Inventory->BackpackSpells.Add(SpellClass);
+			}
+
+			if (USpellBase* SpellCDO = SpellClass->GetDefaultObject<USpellBase>())
+			{
+				PickupName = FText::FromName(SpellCDO->SpellName);
+				PickupIcon = SpellCDO->SpellIcon;
+				PickupIconSprite = SpellCDO->SpellIconSprite;
+			}
+		}
+
 		Inventory->UpdateInventoryUI();
 		Player->ActiveLootDrop = nullptr;
 		Inventory->SaveInventory();
 
-		// Get the default object for the weapon to access icon and name
-		if (UWeaponBase* WeaponCDO = WeaponClass->GetDefaultObject<UWeaponBase>())
+		if (PickupNotificationWidgetClass)
 		{
-			if (PickupNotificationWidgetClass)
+			UItemPickupNotificationWidget* NotificationWidget = CreateWidget<UItemPickupNotificationWidget>(
+				GetWorld(), PickupNotificationWidgetClass);
+
+			if (NotificationWidget)
 			{
-				UItemPickupNotificationWidget* NotificationWidget = CreateWidget<UItemPickupNotificationWidget>(
-					GetWorld(), PickupNotificationWidgetClass);
-
-				if (NotificationWidget)
+				if (PickupIconSprite)
 				{
-					if (WeaponCDO->WeaponIconSprite)
-					{
-						NotificationWidget->SetupPickupInfoSprite(FText::FromName(WeaponCDO->WeaponName), WeaponCDO->WeaponIconSprite);
-					}
-					else
-					{
-						NotificationWidget->SetupPickupInfo(FText::FromName(WeaponCDO->WeaponName), WeaponCDO->WeaponIcon);
-					}
-					NotificationWidget->AddToViewport();
-
-					// Play fade out animation
-					NotificationWidget->PlayAnimation(NotificationWidget->FadeOut);
-
-					// Remove widget AFTER fade finishes (match duration to animation length)
-					FTimerHandle RemoveHandle;
-					FTimerDelegate RemoveDelegate = FTimerDelegate::CreateLambda([NotificationWidget]()
-						{
-							if (NotificationWidget)
-							{
-								NotificationWidget->RemoveFromParent();
-							}
-						});
-					GetWorld()->GetTimerManager().SetTimer(RemoveHandle, RemoveDelegate, 5.0f /* animation length */, false);
+					NotificationWidget->SetupPickupInfoSprite(PickupName, PickupIconSprite);
 				}
+				else
+				{
+					NotificationWidget->SetupPickupInfo(PickupName, PickupIcon);
+				}
+				NotificationWidget->AddToViewport();
+
+				// Play fade out animation
+				NotificationWidget->PlayAnimation(NotificationWidget->FadeOut);
+
+				// Remove widget AFTER fade finishes (match duration to animation length)
+				FTimerHandle RemoveHandle;
+				FTimerDelegate RemoveDelegate = FTimerDelegate::CreateLambda([NotificationWidget]()
+					{
+						if (NotificationWidget)
+						{
+							NotificationWidget->RemoveFromParent();
+						}
+					});
+				GetWorld()->GetTimerManager().SetTimer(RemoveHandle, RemoveDelegate, 5.0f /* animation length */, false);
 			}
 		}
 

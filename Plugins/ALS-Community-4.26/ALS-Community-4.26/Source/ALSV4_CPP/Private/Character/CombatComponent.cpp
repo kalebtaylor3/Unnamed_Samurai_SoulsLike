@@ -1,9 +1,12 @@
 #include "Character/CombatComponent.h"
 #include "Animation/AnimInstance.h"
 #include "Character/ALSBaseCharacter.h"
+#include "Character/InventoryComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Weapons/HeldWeaponBase.h"
+#include "Weapons/MagicWeaponBase.h"
+#include "Weapons/SpellBase.h"
 #include "Weapons/WeaponArrowProjectile.h"
 
 UCombatComponent::UCombatComponent()
@@ -64,6 +67,12 @@ void UCombatComponent::LightAttack()
 	if (IsBowEquipped())
 	{
 		FireBow();
+		return;
+	}
+
+	if (IsMagicWeaponEquipped())
+	{
+		CastBaseMagic();
 		return;
 	}
 
@@ -381,6 +390,151 @@ bool UCombatComponent::IsBowEquipped() const
 	return CurrentWeapon && CurrentWeapon->bIsBow;
 }
 
+bool UCombatComponent::IsMagicWeaponEquipped() const
+{
+	return Cast<UMagicWeaponBase>(CurrentWeapon) != nullptr;
+}
+
+bool UCombatComponent::SpendMagicCosts(float FPCost, float StaminaCost) const
+{
+	if (!OwnerCharacter || !OwnerCharacter->PlayerStats)
+	{
+		return false;
+	}
+
+	if (OwnerCharacter->PlayerStats->CurrentFP < FPCost)
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Blue, TEXT("Not enough FP"));
+		}
+		return false;
+	}
+
+	if (OwnerCharacter->PlayerStats->CurrentStamina < StaminaCost)
+	{
+		OwnerCharacter->PlayerStats->NotifyStaminaExhausted();
+		return false;
+	}
+
+	OwnerCharacter->PlayerStats->UseFP(FPCost);
+	OwnerCharacter->PlayerStats->UseStamina(StaminaCost);
+	return true;
+}
+
+float UCombatComponent::PlayMagicCastMontage(UAnimMontage* Montage)
+{
+	if (!OwnerCharacter || !Montage)
+	{
+		return 0.0f;
+	}
+
+	UAnimInstance* AnimInstance = OwnerCharacter->GetMesh() ? OwnerCharacter->GetMesh()->GetAnimInstance() : nullptr;
+	if (!AnimInstance)
+	{
+		return 0.0f;
+	}
+
+	AnimInstance->SetRootMotionMode(ERootMotionMode::RootMotionFromMontagesOnly);
+	return AnimInstance->Montage_Play(Montage);
+}
+
+void UCombatComponent::BeginMagicCast(float CastDuration)
+{
+	bIsAttacking = true;
+	bCanReceiveInput = false;
+	bInputQueuedThisWindow = false;
+	canRoll = false;
+
+	const float ResetDelay = CastDuration > 0.0f ? CastDuration : 0.5f;
+	GetWorld()->GetTimerManager().ClearTimer(MagicCastEndTimer);
+	GetWorld()->GetTimerManager().SetTimer(MagicCastEndTimer, this, &UCombatComponent::FinishMagicCast, ResetDelay, false);
+}
+
+void UCombatComponent::FinishMagicCast()
+{
+	bIsAttacking = false;
+	bCanReceiveInput = false;
+	bInputQueuedThisWindow = false;
+	canRoll = true;
+}
+
+void UCombatComponent::CastBaseMagic()
+{
+	UMagicWeaponBase* MagicWeapon = Cast<UMagicWeaponBase>(CurrentWeapon);
+	if (!OwnerCharacter || !MagicWeapon)
+	{
+		return;
+	}
+
+	if (checkingForStanceChange || bIsAttacking || bIsDrawingBow)
+	{
+		return;
+	}
+
+	if (OwnerCharacter->GetOverlayState() == EALSOverlayState::Default)
+	{
+		return;
+	}
+
+	if (!SpendMagicCosts(MagicWeapon->BaseCastFPCost, MagicWeapon->BaseCastStaminaCost))
+	{
+		return;
+	}
+
+	const float CastDuration = PlayMagicCastMontage(MagicWeapon->BaseCastMontage);
+	BeginMagicCast(CastDuration);
+	MagicWeapon->BaseCast(OwnerCharacter);
+}
+
+void UCombatComponent::CastEquippedSpell()
+{
+	UMagicWeaponBase* MagicWeapon = Cast<UMagicWeaponBase>(CurrentWeapon);
+	if (!OwnerCharacter || !MagicWeapon)
+	{
+		return;
+	}
+
+	if (checkingForStanceChange || bIsAttacking || bIsDrawingBow)
+	{
+		return;
+	}
+
+	if (OwnerCharacter->GetOverlayState() == EALSOverlayState::Default)
+	{
+		return;
+	}
+
+	USpellBase* Spell = OwnerCharacter->Inventory ? OwnerCharacter->Inventory->GetEquippedSpell() : nullptr;
+	if (!Spell)
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Blue, TEXT("No spell equipped"));
+		}
+		return;
+	}
+
+	if (!MagicWeapon->IsSpellCompatible(Spell))
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Blue, TEXT("Spell is not compatible with this staff"));
+		}
+		return;
+	}
+
+	if (!SpendMagicCosts(Spell->FPCost, Spell->StaminaCost))
+	{
+		return;
+	}
+
+	UAnimMontage* MontageToPlay = Spell->CastMontage ? Spell->CastMontage : MagicWeapon->BaseCastMontage;
+	const float CastDuration = PlayMagicCastMontage(MontageToPlay);
+	BeginMagicCast(CastDuration);
+	MagicWeapon->CastEquippedSpell(OwnerCharacter, Spell);
+}
+
 bool UCombatComponent::FireBow()
 {
 	if (!OwnerCharacter || !CurrentWeapon || !IsBowEquipped() || !bIsDrawingBow || !bCanFireDrawnBow)
@@ -587,6 +741,7 @@ void UCombatComponent::InterruptAttack()
 	bIsLoopingCharge = false;
 	bIsDrawingBow = false;
 	bCanFireDrawnBow = false;
+	GetWorld()->GetTimerManager().ClearTimer(MagicCastEndTimer);
 	GetWorld()->GetTimerManager().ClearTimer(BowDrawReadyTimer);
 	HideBowPreviewArrow();
 	bCanReceiveInput = false;

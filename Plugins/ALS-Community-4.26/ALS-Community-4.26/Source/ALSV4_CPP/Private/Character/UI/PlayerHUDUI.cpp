@@ -212,6 +212,20 @@ void UPlayerHUDUI::UpdatePotionIconSprite(UPaperSprite* NewIcon)
 	SetImageFromSprite(PotionsSlotIcon, NewIcon);
 }
 
+void UPlayerHUDUI::UpdateSpellIcon(UTexture2D* NewIcon)
+{
+	if (Spells)
+	{
+		Spells->SetBrushFromTexture(NewIcon);
+		Spells->SetVisibility(NewIcon ? ESlateVisibility::Visible : ESlateVisibility::Hidden);
+	}
+}
+
+void UPlayerHUDUI::UpdateSpellIconSprite(UPaperSprite* NewIcon)
+{
+	SetImageFromSprite(Spells, NewIcon);
+}
+
 void UPlayerHUDUI::UpdatePotionCount(int32 NewCount)
 {
 	if (PotionsSlotCount)

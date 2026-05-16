@@ -79,7 +79,8 @@ enum class EALSOverlayState : uint8
 	Barrel,
 	Katana,
 	GreatSword,
-	LongSword
+	LongSword,
+	Staff
 };
 
 /**

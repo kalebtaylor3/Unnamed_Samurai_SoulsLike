@@ -54,6 +54,12 @@ public:
 	void UpdatePotionIconSprite(UPaperSprite* NewIcon);
 
 	UFUNCTION(BlueprintCallable)
+	void UpdateSpellIcon(UTexture2D* NewIcon);
+
+	UFUNCTION(BlueprintCallable)
+	void UpdateSpellIconSprite(UPaperSprite* NewIcon);
+
+	UFUNCTION(BlueprintCallable)
 	void UpdatePotionCount(int32 NewCount);
 
 	UFUNCTION(BlueprintCallable)
@@ -121,6 +127,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	UImage* PotionsSlotIcon;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UImage* Spells;
 
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* PotionsSlotCount;

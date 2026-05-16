@@ -76,6 +76,9 @@ protected:
 	void FlaskChangeAction(const FInputActionValue& Value);
 
 	UFUNCTION()
+	void SpellChangeAction(const FInputActionValue& Value);
+
+	UFUNCTION()
 	void UsePotionAction(const FInputActionValue& Value);
 
 	UFUNCTION()
@@ -98,6 +101,9 @@ protected:
 
 	UFUNCTION()
 	void AshOfWarAction(const FInputActionValue& Value);
+
+	UFUNCTION()
+	void CastEquippedSpellAction(const FInputActionValue& Value);
 
 	UFUNCTION()
 	void HeavyAttackAction(const FInputActionValue& Value);
