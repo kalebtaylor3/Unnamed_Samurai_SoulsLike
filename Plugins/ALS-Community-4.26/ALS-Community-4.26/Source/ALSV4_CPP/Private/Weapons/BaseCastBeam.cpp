@@ -1,9 +1,13 @@
 #include "Weapons/BaseCastBeam.h"
 
 #include "AI/EnemyHealthComponent.h"
+#include "Character/ALSPlayerCameraManager.h"
 #include "Components/SceneComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/OverlapResult.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
@@ -161,13 +165,25 @@ void ABaseCastBeam::FireBeam()
 	FVector BeamEnd = BeamStart + BeamDirection * BeamRange;
 
 	FHitResult WorldHit;
-	const bool bHitWorld = bStopBeamAtWorldHit && TraceWorldHit(BeamStart, BeamEnd, WorldHit);
-	if (bHitWorld)
+	FHitResult TargetHit;
+	AActor* LockedTarget = nullptr;
+	bool bHitWorld = false;
+
+	if (TryBuildLockedTargetBeam(BeamStart, BeamEnd, TargetHit, LockedTarget))
 	{
-		BeamEnd = WorldHit.ImpactPoint;
+		DamageBeamTarget(LockedTarget, TargetHit);
+	}
+	else
+	{
+		bHitWorld = bStopBeamAtWorldHit && TraceWorldHit(BeamStart, BeamEnd, WorldHit);
+		if (bHitWorld)
+		{
+			BeamEnd = WorldHit.ImpactPoint;
+		}
+
+		DamageEnemiesAlongBeam(BeamStart, BeamEnd, BeamEnd);
 	}
 
-	DamageEnemiesAlongBeam(BeamStart, BeamEnd, BeamEnd);
 	SpawnBeamFX(BeamStart, BeamEnd);
 	SpawnImpactFX(BeamEnd, bHitWorld ? &WorldHit : nullptr);
 
@@ -176,6 +192,132 @@ void ABaseCastBeam::FireBeam()
 		DrawDebugLine(GetWorld(), BeamStart, BeamEnd, FColor::Yellow, false, DebugDrawDuration, 0, 3.0f);
 		DrawDebugSphere(GetWorld(), BeamEnd, BeamRadius + 8.0f, 16, FColor::Orange, false, DebugDrawDuration);
 	}
+}
+
+AActor* ABaseCastBeam::GetLockedTargetFromCaster() const
+{
+	const APawn* CasterPawn = Cast<APawn>(Caster);
+	if (!CasterPawn)
+	{
+		return nullptr;
+	}
+
+	const APlayerController* PlayerController = Cast<APlayerController>(CasterPawn->GetController());
+	if (!PlayerController)
+	{
+		return nullptr;
+	}
+
+	const AALSPlayerCameraManager* CameraManager = Cast<AALSPlayerCameraManager>(PlayerController->PlayerCameraManager);
+	if (!CameraManager || !CameraManager->bIsTargetLocked)
+	{
+		return nullptr;
+	}
+
+	return CameraManager->LockedTarget;
+}
+
+bool ABaseCastBeam::IsValidBeamTarget(AActor* TargetActor) const
+{
+	if (!TargetActor || IsIgnoredActor(TargetActor))
+	{
+		return false;
+	}
+
+	const UEnemyHealthComponent* HealthComponent = TargetActor->FindComponentByClass<UEnemyHealthComponent>();
+	return HealthComponent && !HealthComponent->IsDeadOrOutOfHealth();
+}
+
+FVector ABaseCastBeam::GetTargetAimLocation(AActor* TargetActor) const
+{
+	if (!TargetActor)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (const USkeletalMeshComponent* MeshComponent = TargetActor->FindComponentByClass<USkeletalMeshComponent>())
+	{
+		if (!TargetSocketName.IsNone() && MeshComponent->DoesSocketExist(TargetSocketName))
+		{
+			return MeshComponent->GetSocketLocation(TargetSocketName);
+		}
+	}
+
+	FVector Origin = FVector::ZeroVector;
+	FVector Extent = FVector::ZeroVector;
+	TargetActor->GetActorBounds(false, Origin, Extent);
+	if (!Origin.IsNearlyZero())
+	{
+		return Origin;
+	}
+
+	return TargetActor->GetActorLocation() + FVector(0.0f, 0.0f, TargetFallbackHeightOffset);
+}
+
+bool ABaseCastBeam::TryBuildLockedTargetBeam(const FVector& BeamStart, FVector& OutBeamEnd, FHitResult& OutTargetHit, AActor*& OutTargetActor) const
+{
+	OutTargetActor = nullptr;
+
+	if (!bPreferLockedTarget)
+	{
+		return false;
+	}
+
+	AActor* LockedTarget = GetLockedTargetFromCaster();
+	if (!IsValidBeamTarget(LockedTarget))
+	{
+		return false;
+	}
+
+	const FVector AimLocation = GetTargetAimLocation(LockedTarget);
+	const float DistanceToTarget = FVector::Dist(BeamStart, AimLocation);
+	if (DistanceToTarget > BeamRange + LockedTargetRangeForgiveness)
+	{
+		return false;
+	}
+
+	if (bLockedTargetRequiresLineOfSight && bStopBeamAtWorldHit)
+	{
+		FHitResult BlockingHit;
+		if (TraceWorldHit(BeamStart, AimLocation, BlockingHit))
+		{
+			const float BlockingDistance = FVector::Dist(BeamStart, BlockingHit.ImpactPoint);
+			if (BlockingDistance + 25.0f < DistanceToTarget)
+			{
+				OutBeamEnd = BlockingHit.ImpactPoint;
+				return false;
+			}
+		}
+	}
+
+	OutBeamEnd = AimLocation;
+	OutTargetActor = LockedTarget;
+	OutTargetHit = FHitResult();
+	OutTargetHit.Location = AimLocation;
+	OutTargetHit.ImpactPoint = AimLocation;
+	OutTargetHit.TraceStart = BeamStart;
+	OutTargetHit.TraceEnd = AimLocation;
+	OutTargetHit.Distance = DistanceToTarget;
+	return true;
+}
+
+bool ABaseCastBeam::DamageBeamTarget(AActor* HitActor, const FHitResult& Hit)
+{
+	if (!HitActor || IsIgnoredActor(HitActor) || DamagedActors.Contains(HitActor))
+	{
+		return false;
+	}
+
+	UEnemyHealthComponent* HealthComponent = HitActor->FindComponentByClass<UEnemyHealthComponent>();
+	if (!HealthComponent || HealthComponent->IsDeadOrOutOfHealth())
+	{
+		return false;
+	}
+
+	HealthComponent->TakeDamage(DamageAmount);
+	DamagedActors.Add(HitActor);
+	OnBeamHit(HitActor, Hit);
+	return true;
 }
 
 bool ABaseCastBeam::TraceWorldHit(const FVector& BeamStart, const FVector& BeamEnd, FHitResult& OutHit) const
@@ -249,15 +391,10 @@ void ABaseCastBeam::DamageEnemiesAlongBeam(const FVector& BeamStart, const FVect
 			continue;
 		}
 
-		UEnemyHealthComponent* HealthComponent = HitActor->FindComponentByClass<UEnemyHealthComponent>();
-		if (!HealthComponent || HealthComponent->IsDeadOrOutOfHealth())
+		if (!DamageBeamTarget(HitActor, Hit))
 		{
 			continue;
 		}
-
-		HealthComponent->TakeDamage(DamageAmount);
-		DamagedActors.Add(HitActor);
-		OnBeamHit(HitActor, Hit);
 
 		if (bDamageFirstEnemyOnly)
 		{

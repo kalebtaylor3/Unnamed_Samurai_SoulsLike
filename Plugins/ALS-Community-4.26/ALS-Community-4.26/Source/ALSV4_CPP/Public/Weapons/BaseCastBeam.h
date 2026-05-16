@@ -52,6 +52,21 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Beam|Trace")
 	bool bIgnoreCasterAttachedActors = true;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Beam|Targeting")
+	bool bPreferLockedTarget = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Beam|Targeting")
+	bool bLockedTargetRequiresLineOfSight = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Beam|Targeting")
+	FName TargetSocketName = TEXT("TargetLockSocket");
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Beam|Targeting")
+	float TargetFallbackHeightOffset = 95.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Beam|Targeting", meta = (ClampMin = "0.0"))
+	float LockedTargetRangeForgiveness = 120.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Beam|FX")
 	UNiagaraSystem* BeamNiagara = nullptr;
 
@@ -108,6 +123,11 @@ private:
 	void AddIgnoredActor(AActor* ActorToIgnore);
 	bool IsIgnoredActor(const AActor* Actor) const;
 	void FireBeam();
+	AActor* GetLockedTargetFromCaster() const;
+	bool IsValidBeamTarget(AActor* TargetActor) const;
+	FVector GetTargetAimLocation(AActor* TargetActor) const;
+	bool TryBuildLockedTargetBeam(const FVector& BeamStart, FVector& OutBeamEnd, FHitResult& OutTargetHit, AActor*& OutTargetActor) const;
+	bool DamageBeamTarget(AActor* HitActor, const FHitResult& Hit);
 	bool TraceWorldHit(const FVector& BeamStart, const FVector& BeamEnd, FHitResult& OutHit) const;
 	void DamageEnemiesAlongBeam(const FVector& BeamStart, const FVector& BeamEnd, FVector& InOutBeamEnd);
 	void SpawnBeamFX(const FVector& BeamStart, const FVector& BeamEnd);
