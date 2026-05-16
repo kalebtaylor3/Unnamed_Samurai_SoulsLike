@@ -724,7 +724,8 @@ void ABaseCastProjectile::UpdateMagicMotion(float DeltaSeconds)
 		? FMath::Clamp(TimeSinceLaunch / SpeedRampDuration, 0.0f, 1.0f)
 		: 1.0f;
 	const float EasedSpeedAlpha = FMath::InterpEaseInOut(0.0f, 1.0f, SpeedAlpha, 2.0f);
-	const float CurrentSpeed = FMath::Lerp(InitialSpeed * InitialLaunchSpeedRatio, MaxSpeed, EasedSpeedAlpha);
+	float CurrentSpeed = FMath::Lerp(InitialSpeed * InitialLaunchSpeedRatio, MaxSpeed, EasedSpeedAlpha);
+	float DistanceToTarget = 0.0f;
 
 	FVector CurrentDirection = ProjectileMovement->Velocity.GetSafeNormal();
 	if (CurrentDirection.IsNearlyZero())
@@ -738,7 +739,8 @@ void ABaseCastProjectile::UpdateMagicMotion(float DeltaSeconds)
 		DesiredDirection = GetDesiredLaunchDirection();
 		if (bAlwaysHeatSeekEnemies)
 		{
-			const float DistanceToTarget = FVector::Dist(GetActorLocation(), GetHeatSeekAimLocation(HomingTarget));
+			DistanceToTarget = FVector::Dist(GetActorLocation(), GetHeatSeekAimLocation(HomingTarget));
+			CurrentSpeed = GetMagicalHeatSeekSpeed(CurrentSpeed, DistanceToTarget);
 			DesiredDirection = GetMagicalHeatSeekDirection(DesiredDirection, DistanceToTarget);
 
 			if (HeatSeekTurnSharpness > 0.0f)
@@ -799,6 +801,34 @@ bool ABaseCastProjectile::TryCatchHeatSeekTarget(const FVector& TraceStart, cons
 
 	HandleEnemyHit(HomingTarget, Hit);
 	return true;
+}
+
+float ABaseCastProjectile::GetMagicalHeatSeekSpeed(float BaseSpeed, float DistanceToTarget) const
+{
+	if (!bUseMagicalHeatSeekSpeed)
+	{
+		return BaseSpeed;
+	}
+
+	const float RampAlpha = HeatSeekSpeedRampDuration > 0.0f
+		? FMath::Clamp(TimeSinceLaunch / HeatSeekSpeedRampDuration, 0.0f, 1.0f)
+		: 1.0f;
+	const float EasedRampAlpha = FMath::InterpEaseInOut(0.0f, 1.0f, RampAlpha, 2.0f);
+	float Speed = FMath::Lerp(HeatSeekStartSpeed, HeatSeekCruiseSpeed, EasedRampAlpha);
+
+	if (HeatSeekCloseFadeDistance > 0.0f)
+	{
+		const float CloseAlpha = 1.0f - FMath::Clamp((DistanceToTarget - HeatSeekCatchRadius) / HeatSeekCloseFadeDistance, 0.0f, 1.0f);
+		Speed *= FMath::Lerp(1.0f, HeatSeekCloseSpeedMultiplier, CloseAlpha);
+	}
+
+	if (HeatSeekSpeedPulseStrength > 0.0f && HeatSeekSpeedPulseFrequency > 0.0f)
+	{
+		const float Pulse = 1.0f + FMath::Sin(SpiralPhase + TimeSinceLaunch * HeatSeekSpeedPulseFrequency) * HeatSeekSpeedPulseStrength;
+		Speed *= Pulse;
+	}
+
+	return FMath::Max(1.0f, Speed);
 }
 
 FVector ABaseCastProjectile::GetMagicalHeatSeekDirection(const FVector& DirectDirection, float DistanceToTarget) const

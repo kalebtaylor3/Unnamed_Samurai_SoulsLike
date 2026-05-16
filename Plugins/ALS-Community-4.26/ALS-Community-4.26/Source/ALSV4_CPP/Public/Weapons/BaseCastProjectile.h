@@ -168,6 +168,27 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel", meta = (EditCondition = "bUseMagicalHeatSeekPath", ClampMin = "0.0"))
 	float HeatSeekTurnSharpness = 26.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel")
+	bool bUseMagicalHeatSeekSpeed = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel", meta = (EditCondition = "bUseMagicalHeatSeekSpeed", ClampMin = "0.0"))
+	float HeatSeekStartSpeed = 180.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel", meta = (EditCondition = "bUseMagicalHeatSeekSpeed", ClampMin = "0.0"))
+	float HeatSeekCruiseSpeed = 760.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel", meta = (EditCondition = "bUseMagicalHeatSeekSpeed", ClampMin = "0.0"))
+	float HeatSeekSpeedRampDuration = 1.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel", meta = (EditCondition = "bUseMagicalHeatSeekSpeed", ClampMin = "0.0", ClampMax = "1.0"))
+	float HeatSeekCloseSpeedMultiplier = 0.72f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel", meta = (EditCondition = "bUseMagicalHeatSeekSpeed", ClampMin = "0.0", ClampMax = "0.5"))
+	float HeatSeekSpeedPulseStrength = 0.08f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel", meta = (EditCondition = "bUseMagicalHeatSeekSpeed", ClampMin = "0.0"))
+	float HeatSeekSpeedPulseFrequency = 5.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Debug")
 	bool bDebugTargeting = false;
 
@@ -229,6 +250,7 @@ private:
 	void UpdateMagicMotion(float DeltaSeconds);
 	void UpdateVisualSpiral();
 	bool TryCatchHeatSeekTarget(const FVector& TraceStart, const FVector& TraceEnd);
+	float GetMagicalHeatSeekSpeed(float BaseSpeed, float DistanceToTarget) const;
 	FVector GetMagicalHeatSeekDirection(const FVector& DirectDirection, float DistanceToTarget) const;
 	FVector GetForwardLaunchDirection() const;
 	FVector GetDesiredLaunchDirection() const;
