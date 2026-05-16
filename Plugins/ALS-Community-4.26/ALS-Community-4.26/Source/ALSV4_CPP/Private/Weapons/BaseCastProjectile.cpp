@@ -306,14 +306,15 @@ AActor* ABaseCastProjectile::FindBestTarget() const
 		if (AActor* LockedTarget = GetLockedTargetFromCaster())
 		{
 			const bool bLockedTargetValid = IsValidHeatSeekTarget(LockedTarget);
-			const bool bLockedTargetInRange = FVector::Dist(Caster->GetActorLocation(), GetTargetAimLocation(LockedTarget)) <= TargetSearchRange;
+			const FVector LockedAimLocation = bAlwaysHeatSeekEnemies ? GetHeatSeekAimLocation(LockedTarget) : GetTargetAimLocation(LockedTarget);
+			const bool bLockedTargetInRange = FVector::Dist(Caster->GetActorLocation(), LockedAimLocation) <= TargetSearchRange;
 
 			if (bLockedTargetValid && bLockedTargetInRange)
 			{
 				DebugTargetingMessage(FString::Printf(TEXT("Magic target acquired from lock-on: %s"), *LockedTarget->GetName()), FColor::Green);
 				if (bDebugTargeting)
 				{
-					DrawDebugLine(GetWorld(), GetActorLocation(), GetTargetAimLocation(LockedTarget), FColor::Green, false, TargetDebugDrawDuration, 0, 2.0f);
+					DrawDebugLine(GetWorld(), GetActorLocation(), LockedAimLocation, FColor::Green, false, TargetDebugDrawDuration, 0, 2.0f);
 				}
 				return LockedTarget;
 			}
@@ -362,7 +363,7 @@ AActor* ABaseCastProjectile::FindBestTarget() const
 			return;
 		}
 
-		const FVector TargetLocation = GetTargetAimLocation(Candidate);
+		const FVector TargetLocation = bAlwaysHeatSeekEnemies ? GetHeatSeekAimLocation(Candidate) : GetTargetAimLocation(Candidate);
 		const FVector ToTarget = TargetLocation - SearchOrigin;
 		const float Distance = ToTarget.Size();
 		if (Distance <= KINDA_SMALL_NUMBER || Distance > TargetSearchRange)
@@ -442,8 +443,9 @@ AActor* ABaseCastProjectile::FindBestTarget() const
 		DrawDebugSphere(GetWorld(), SearchOrigin, TargetSearchRange, 32, BestTarget ? FColor::Green : FColor::Red, false, TargetDebugDrawDuration, 0, 1.5f);
 		if (BestTarget)
 		{
-			DrawDebugLine(GetWorld(), SearchOrigin, GetTargetAimLocation(BestTarget), FColor::Green, false, TargetDebugDrawDuration, 0, 2.5f);
-			DrawDebugSphere(GetWorld(), GetTargetAimLocation(BestTarget), 28.0f, 12, FColor::Green, false, TargetDebugDrawDuration, 0, 2.0f);
+			const FVector BestTargetLocation = bAlwaysHeatSeekEnemies ? GetHeatSeekAimLocation(BestTarget) : GetTargetAimLocation(BestTarget);
+			DrawDebugLine(GetWorld(), SearchOrigin, BestTargetLocation, FColor::Green, false, TargetDebugDrawDuration, 0, 2.5f);
+			DrawDebugSphere(GetWorld(), BestTargetLocation, 28.0f, 12, FColor::Green, false, TargetDebugDrawDuration, 0, 2.0f);
 		}
 
 		const FString TargetName = BestTarget ? BestTarget->GetName() : TEXT("none");
@@ -518,6 +520,34 @@ FVector ABaseCastProjectile::GetTargetAimLocation(AActor* TargetActor) const
 	}
 
 	FVector AimLocation = TargetActor->GetActorLocation() + FVector(0.0f, 0.0f, TargetFallbackHeightOffset);
+	if (TrackingPredictionTime > 0.0f)
+	{
+		AimLocation += TargetActor->GetVelocity() * TrackingPredictionTime;
+	}
+
+	return AimLocation;
+}
+
+FVector ABaseCastProjectile::GetHeatSeekAimLocation(AActor* TargetActor) const
+{
+	if (!TargetActor)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (!bHeatSeekAimAtCenterMass)
+	{
+		return GetTargetAimLocation(TargetActor);
+	}
+
+	FVector Origin = FVector::ZeroVector;
+	FVector Extents = FVector::ZeroVector;
+	TargetActor->GetActorBounds(false, Origin, Extents);
+
+	FVector AimLocation = Extents.IsNearlyZero()
+		? TargetActor->GetActorLocation() + FVector(0.0f, 0.0f, TargetFallbackHeightOffset * 0.5f)
+		: Origin + FVector(0.0f, 0.0f, HeatSeekCenterMassZOffset);
+
 	if (TrackingPredictionTime > 0.0f)
 	{
 		AimLocation += TargetActor->GetVelocity() * TrackingPredictionTime;
@@ -706,7 +736,17 @@ void ABaseCastProjectile::UpdateMagicMotion(float DeltaSeconds)
 	if (bShouldHeatSeek && HomingTarget && (bAlwaysHeatSeekEnemies || TimeSinceLaunch >= HomingDelayAfterLaunch))
 	{
 		DesiredDirection = GetDesiredLaunchDirection();
-		if (!bAlwaysHeatSeekEnemies)
+		if (bAlwaysHeatSeekEnemies)
+		{
+			const float DistanceToTarget = FVector::Dist(GetActorLocation(), GetHeatSeekAimLocation(HomingTarget));
+			DesiredDirection = GetMagicalHeatSeekDirection(DesiredDirection, DistanceToTarget);
+
+			if (HeatSeekTurnSharpness > 0.0f)
+			{
+				DesiredDirection = FMath::VInterpNormalRotationTo(CurrentDirection, DesiredDirection, DeltaSeconds, HeatSeekTurnSharpness);
+			}
+		}
+		else
 		{
 			const float HomingAlpha = HomingRampDuration > 0.0f
 				? FMath::Clamp(TimeSinceLaunch / HomingRampDuration, 0.0f, 1.0f)
@@ -738,7 +778,7 @@ bool ABaseCastProjectile::TryCatchHeatSeekTarget(const FVector& TraceStart, cons
 		return false;
 	}
 
-	const FVector TargetLocation = GetTargetAimLocation(HomingTarget);
+	const FVector TargetLocation = GetHeatSeekAimLocation(HomingTarget);
 	const FVector Segment = TraceEnd - TraceStart;
 	const float SegmentLengthSquared = Segment.SizeSquared();
 	const float SegmentAlpha = SegmentLengthSquared > KINDA_SMALL_NUMBER
@@ -759,6 +799,45 @@ bool ABaseCastProjectile::TryCatchHeatSeekTarget(const FVector& TraceStart, cons
 
 	HandleEnemyHit(HomingTarget, Hit);
 	return true;
+}
+
+FVector ABaseCastProjectile::GetMagicalHeatSeekDirection(const FVector& DirectDirection, float DistanceToTarget) const
+{
+	if (!bUseMagicalHeatSeekPath || DirectDirection.IsNearlyZero())
+	{
+		return DirectDirection;
+	}
+
+	const float CloseFade = HeatSeekCloseFadeDistance > 0.0f
+		? FMath::Clamp((DistanceToTarget - HeatSeekCatchRadius) / HeatSeekCloseFadeDistance, 0.0f, 1.0f)
+		: 1.0f;
+	const float LaunchFade = FMath::Clamp(TimeSinceLaunch / 0.28f, 0.0f, 1.0f);
+	const float MagicAlpha = CloseFade * LaunchFade;
+	if (MagicAlpha <= KINDA_SMALL_NUMBER)
+	{
+		return DirectDirection;
+	}
+
+	FVector SideAxis = FVector::CrossProduct(FVector::UpVector, DirectDirection).GetSafeNormal();
+	if (SideAxis.IsNearlyZero())
+	{
+		SideAxis = GetActorRightVector();
+	}
+
+	FVector LiftAxis = FVector::CrossProduct(DirectDirection, SideAxis).GetSafeNormal();
+	if (LiftAxis.IsNearlyZero())
+	{
+		LiftAxis = FVector::UpVector;
+	}
+
+	const float Phase = SpiralPhase + TimeSinceLaunch * HeatSeekWeaveFrequency;
+	const FVector Weave =
+		(SideAxis * FMath::Sin(Phase) * HeatSeekWeaveStrength) +
+		(LiftAxis * FMath::Cos(Phase * 0.72f) * HeatSeekWeaveStrength * 0.55f) +
+		(FVector::UpVector * HeatSeekVerticalLiftStrength);
+
+	const FVector MagicalDirection = (DirectDirection + Weave * MagicAlpha).GetSafeNormal();
+	return MagicalDirection.IsNearlyZero() ? DirectDirection : MagicalDirection;
 }
 
 void ABaseCastProjectile::UpdateVisualSpiral()
@@ -796,7 +875,7 @@ FVector ABaseCastProjectile::GetDesiredLaunchDirection() const
 {
 	if (HomingTarget)
 	{
-		const FVector TargetLocation = GetTargetAimLocation(HomingTarget);
+		const FVector TargetLocation = bAlwaysHeatSeekEnemies ? GetHeatSeekAimLocation(HomingTarget) : GetTargetAimLocation(HomingTarget);
 		const FVector ToTarget = (TargetLocation - GetActorLocation()).GetSafeNormal();
 		if (!ToTarget.IsNearlyZero())
 		{

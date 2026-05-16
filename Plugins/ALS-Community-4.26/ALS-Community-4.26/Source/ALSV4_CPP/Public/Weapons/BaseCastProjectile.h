@@ -142,7 +142,31 @@ public:
 	FName EnemyTargetTag = TEXT("Enemy");
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Homing", meta = (ClampMin = "0.0"))
-	float HeatSeekCatchRadius = 120.0f;
+	float HeatSeekCatchRadius = 160.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Homing")
+	bool bHeatSeekAimAtCenterMass = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Homing", meta = (EditCondition = "bHeatSeekAimAtCenterMass"))
+	float HeatSeekCenterMassZOffset = 0.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel")
+	bool bUseMagicalHeatSeekPath = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel", meta = (EditCondition = "bUseMagicalHeatSeekPath", ClampMin = "0.0"))
+	float HeatSeekWeaveStrength = 0.22f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel", meta = (EditCondition = "bUseMagicalHeatSeekPath", ClampMin = "0.0"))
+	float HeatSeekVerticalLiftStrength = 0.06f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel", meta = (EditCondition = "bUseMagicalHeatSeekPath", ClampMin = "0.0"))
+	float HeatSeekWeaveFrequency = 8.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel", meta = (EditCondition = "bUseMagicalHeatSeekPath", ClampMin = "0.0"))
+	float HeatSeekCloseFadeDistance = 900.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Magic Feel", meta = (EditCondition = "bUseMagicalHeatSeekPath", ClampMin = "0.0"))
+	float HeatSeekTurnSharpness = 26.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Debug")
 	bool bDebugTargeting = false;
@@ -196,6 +220,7 @@ private:
 	void DebugTargetingMessage(const FString& Message, const FColor& Color) const;
 	USceneComponent* GetTargetHomingComponent(AActor* TargetActor) const;
 	FVector GetTargetAimLocation(AActor* TargetActor) const;
+	FVector GetHeatSeekAimLocation(AActor* TargetActor) const;
 	FVector GetCasterAimForward() const;
 	void RefreshHomingTarget();
 	void ResetMagicLaunchState();
@@ -204,6 +229,7 @@ private:
 	void UpdateMagicMotion(float DeltaSeconds);
 	void UpdateVisualSpiral();
 	bool TryCatchHeatSeekTarget(const FVector& TraceStart, const FVector& TraceEnd);
+	FVector GetMagicalHeatSeekDirection(const FVector& DirectDirection, float DistanceToTarget) const;
 	FVector GetForwardLaunchDirection() const;
 	FVector GetDesiredLaunchDirection() const;
 	void ApplyInitialVelocity();
