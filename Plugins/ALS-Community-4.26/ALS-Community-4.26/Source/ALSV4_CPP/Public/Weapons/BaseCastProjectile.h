@@ -228,6 +228,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Impact")
 	bool bUseProjectileFacingForFlatImpacts = true;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Impact")
+	bool bAttachImpactFXToEnemy = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Impact", meta = (EditCondition = "bAttachImpactFXToEnemy"))
+	bool bAttachImpactFXToHitBone = true;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -270,7 +276,7 @@ private:
 	void HandleActorHit(AActor* HitActor, const FHitResult& Hit);
 	void HandleEnemyHit(AActor* HitActor, const FHitResult& Hit);
 	void HandleWorldHit(AActor* HitActor, const FHitResult& Hit);
-	void SpawnImpactFX(const FHitResult& Hit) const;
+	void SpawnImpactFX(AActor* HitActor, const FHitResult& Hit, bool bEnemyImpact) const;
 	void StopProjectile();
 	void FinishProjectile();
 

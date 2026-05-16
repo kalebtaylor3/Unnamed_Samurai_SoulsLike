@@ -980,7 +980,7 @@ void ABaseCastProjectile::HandleEnemyHit(AActor* HitActor, const FHitResult& Hit
 		DamagedActors.Add(HitActor);
 	}
 
-	SpawnImpactFX(Hit);
+	SpawnImpactFX(HitActor, Hit, true);
 	OnProjectileImpacted(HitActor, Hit);
 
 	if (bDestroyOnEnemyHit)
@@ -991,7 +991,7 @@ void ABaseCastProjectile::HandleEnemyHit(AActor* HitActor, const FHitResult& Hit
 
 void ABaseCastProjectile::HandleWorldHit(AActor* HitActor, const FHitResult& Hit)
 {
-	SpawnImpactFX(Hit);
+	SpawnImpactFX(HitActor, Hit, false);
 	OnProjectileImpacted(HitActor, Hit);
 
 	if (bDestroyOnWorldHit)
@@ -1000,7 +1000,7 @@ void ABaseCastProjectile::HandleWorldHit(AActor* HitActor, const FHitResult& Hit
 	}
 }
 
-void ABaseCastProjectile::SpawnImpactFX(const FHitResult& Hit) const
+void ABaseCastProjectile::SpawnImpactFX(AActor* HitActor, const FHitResult& Hit, bool bEnemyImpact) const
 {
 	const FVector ImpactPoint = Hit.ImpactPoint.IsNearlyZero() ? GetActorLocation() : FVector(Hit.ImpactPoint);
 	const FVector ImpactNormal = Hit.ImpactNormal.IsNearlyZero() ? -GetActorForwardVector() : FVector(Hit.ImpactNormal).GetSafeNormal();
@@ -1016,24 +1016,69 @@ void ABaseCastProjectile::SpawnImpactFX(const FHitResult& Hit) const
 		EffectRotation = GetActorRotation();
 	}
 
+	USceneComponent* AttachComponent = nullptr;
+	if (bEnemyImpact && bAttachImpactFXToEnemy && HitActor)
+	{
+		AttachComponent = Hit.GetComponent();
+		if (!AttachComponent)
+		{
+			AttachComponent = HitActor->GetRootComponent();
+		}
+	}
+
+	const FName AttachPointName = bAttachImpactFXToHitBone ? Hit.BoneName : NAME_None;
+
 	if (ImpactNiagara)
 	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-			GetWorld(),
-			ImpactNiagara,
-			EffectLocation,
-			EffectRotation,
-			ImpactFXScale);
+		if (AttachComponent)
+		{
+			UNiagaraComponent* SpawnedImpact = UNiagaraFunctionLibrary::SpawnSystemAttached(
+				ImpactNiagara,
+				AttachComponent,
+				AttachPointName,
+				EffectLocation,
+				EffectRotation,
+				EAttachLocation::KeepWorldPosition,
+				true);
+			if (SpawnedImpact)
+			{
+				SpawnedImpact->SetWorldScale3D(ImpactFXScale);
+			}
+		}
+		else
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+				GetWorld(),
+				ImpactNiagara,
+				EffectLocation,
+				EffectRotation,
+				ImpactFXScale);
+		}
 	}
 
 	if (ImpactParticle)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(
-			GetWorld(),
-			ImpactParticle,
-			EffectLocation,
-			EffectRotation,
-			ImpactFXScale);
+		if (AttachComponent)
+		{
+			UGameplayStatics::SpawnEmitterAttached(
+				ImpactParticle,
+				AttachComponent,
+				AttachPointName,
+				EffectLocation,
+				EffectRotation,
+				ImpactFXScale,
+				EAttachLocation::KeepWorldPosition,
+				true);
+		}
+		else
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(
+				GetWorld(),
+				ImpactParticle,
+				EffectLocation,
+				EffectRotation,
+				ImpactFXScale);
+		}
 	}
 }
 
