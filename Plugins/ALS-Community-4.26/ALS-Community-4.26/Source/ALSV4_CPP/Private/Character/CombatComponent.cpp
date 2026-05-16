@@ -459,6 +459,26 @@ void UCombatComponent::FinishMagicCast()
 	canRoll = true;
 }
 
+void UCombatComponent::ReleaseBaseMagic(UMagicWeaponBase* MagicWeapon)
+{
+	if (!OwnerCharacter || !MagicWeapon || !bIsAttacking)
+	{
+		return;
+	}
+
+	MagicWeapon->BaseCast(OwnerCharacter);
+}
+
+void UCombatComponent::ReleaseEquippedSpell(UMagicWeaponBase* MagicWeapon, USpellBase* Spell)
+{
+	if (!OwnerCharacter || !MagicWeapon || !Spell || !bIsAttacking)
+	{
+		return;
+	}
+
+	MagicWeapon->CastEquippedSpell(OwnerCharacter, Spell);
+}
+
 void UCombatComponent::CastBaseMagic()
 {
 	UMagicWeaponBase* MagicWeapon = Cast<UMagicWeaponBase>(CurrentWeapon);
@@ -484,7 +504,18 @@ void UCombatComponent::CastBaseMagic()
 
 	const float CastDuration = PlayMagicCastMontage(MagicWeapon->BaseCastMontage);
 	BeginMagicCast(CastDuration);
-	MagicWeapon->BaseCast(OwnerCharacter);
+
+	GetWorld()->GetTimerManager().ClearTimer(MagicSpellReleaseTimer);
+	if (MagicWeapon->BaseCastReleaseDelay <= 0.0f)
+	{
+		ReleaseBaseMagic(MagicWeapon);
+	}
+	else
+	{
+		FTimerDelegate ReleaseDelegate;
+		ReleaseDelegate.BindUObject(this, &UCombatComponent::ReleaseBaseMagic, MagicWeapon);
+		GetWorld()->GetTimerManager().SetTimer(MagicSpellReleaseTimer, ReleaseDelegate, MagicWeapon->BaseCastReleaseDelay, false);
+	}
 }
 
 void UCombatComponent::CastEquippedSpell()
@@ -532,7 +563,18 @@ void UCombatComponent::CastEquippedSpell()
 	UAnimMontage* MontageToPlay = Spell->CastMontage ? Spell->CastMontage : MagicWeapon->BaseCastMontage;
 	const float CastDuration = PlayMagicCastMontage(MontageToPlay);
 	BeginMagicCast(CastDuration);
-	MagicWeapon->CastEquippedSpell(OwnerCharacter, Spell);
+
+	GetWorld()->GetTimerManager().ClearTimer(MagicSpellReleaseTimer);
+	if (Spell->CastReleaseDelay <= 0.0f)
+	{
+		ReleaseEquippedSpell(MagicWeapon, Spell);
+	}
+	else
+	{
+		FTimerDelegate ReleaseDelegate;
+		ReleaseDelegate.BindUObject(this, &UCombatComponent::ReleaseEquippedSpell, MagicWeapon, Spell);
+		GetWorld()->GetTimerManager().SetTimer(MagicSpellReleaseTimer, ReleaseDelegate, Spell->CastReleaseDelay, false);
+	}
 }
 
 bool UCombatComponent::FireBow()
@@ -742,6 +784,7 @@ void UCombatComponent::InterruptAttack()
 	bIsDrawingBow = false;
 	bCanFireDrawnBow = false;
 	GetWorld()->GetTimerManager().ClearTimer(MagicCastEndTimer);
+	GetWorld()->GetTimerManager().ClearTimer(MagicSpellReleaseTimer);
 	GetWorld()->GetTimerManager().ClearTimer(BowDrawReadyTimer);
 	HideBowPreviewArrow();
 	bCanReceiveInput = false;

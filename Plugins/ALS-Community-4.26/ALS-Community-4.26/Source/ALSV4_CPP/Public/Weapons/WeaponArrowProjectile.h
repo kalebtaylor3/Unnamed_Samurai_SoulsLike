@@ -7,6 +7,7 @@
 #include "WeaponArrowProjectile.generated.h"
 
 class UProjectileMovementComponent;
+class UNiagaraComponent;
 class UParticleSystem;
 class USphereComponent;
 class UStaticMeshComponent;
@@ -30,10 +31,28 @@ public:
 	UStaticMeshComponent* ArrowMesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UNiagaraComponent* TrailFX;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UProjectileMovementComponent* ProjectileMovement;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Arrow|Sticking")
 	FName EnemyBodyTag = TEXT("EnemyBody");
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Arrow|Trail")
+	bool bDestroyTrailOnImpact = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Arrow|Trail", meta = (EditCondition = "bDestroyTrailOnImpact", ClampMin = "0.0"))
+	float TrailDestroyDelay = 0.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Arrow|Trail")
+	bool bActivateTrailImmediately = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Arrow|Trail", meta = (EditCondition = "bActivateTrailImmediately", ClampMin = "0"))
+	int32 TrailWarmupTickCount = 4;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Arrow|Trail", meta = (EditCondition = "bActivateTrailImmediately", ClampMin = "0.001"))
+	float TrailWarmupTickDelta = 0.016f;
 
 protected:
 	virtual void BeginPlay() override;
@@ -54,6 +73,8 @@ private:
 	bool TryFindEnemyBodyStickHit(AActor* HitActor, const FHitResult& OriginalHit, FHitResult& OutStickHit) const;
 	void HandleEnemyHit(AActor* HitActor, const FHitResult& Hit);
 	void StickArrowToHit(const FHitResult& Hit);
+	void StartTrailFX();
+	void StopTrailFX();
 
 	UPROPERTY()
 	AActor* IgnoredActor = nullptr;
@@ -66,6 +87,8 @@ private:
 
 	UPROPERTY()
 	UParticleSystem* HitEffect = nullptr;
+
+	FTimerHandle TrailDestroyTimerHandle;
 
 	float DamageAmount = 35.0f;
 	FVector PreviousLocation = FVector::ZeroVector;

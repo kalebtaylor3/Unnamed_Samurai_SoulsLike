@@ -8,6 +8,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "NiagaraComponent.h"
+#include "TimerManager.h"
 
 AWeaponArrowProjectile::AWeaponArrowProjectile()
 {
@@ -26,6 +28,10 @@ AWeaponArrowProjectile::AWeaponArrowProjectile()
 	ArrowMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ArrowMesh"));
 	ArrowMesh->SetupAttachment(Collision);
 	ArrowMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	TrailFX = CreateDefaultSubobject<UNiagaraComponent>(TEXT("TrailFX"));
+	TrailFX->SetupAttachment(Collision);
+	TrailFX->SetAutoActivate(true);
 
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
 	ProjectileMovement->InitialSpeed = 4500.0f;
@@ -47,6 +53,7 @@ void AWeaponArrowProjectile::BeginPlay()
 	AddIgnoredActor(GetOwner());
 	AddIgnoredActor(GetInstigator());
 
+	StartTrailFX();
 	PreviousLocation = GetActorLocation();
 }
 
@@ -70,6 +77,8 @@ void AWeaponArrowProjectile::InitializeArrow(float InDamage, float InSpeed, AAct
 	AddIgnoredActor(IgnoredActor);
 	AddIgnoredActor(GetOwner());
 	AddIgnoredActor(GetInstigator());
+
+	StartTrailFX();
 }
 
 void AWeaponArrowProjectile::Tick(float DeltaSeconds)
@@ -147,7 +156,10 @@ void AWeaponArrowProjectile::OnArrowHit(UPrimitiveComponent* HitComponent, AActo
 	if (CanStickToHit(Hit))
 	{
 		StickArrowToHit(Hit);
+		return;
 	}
+
+	StopTrailFX();
 }
 
 void AWeaponArrowProjectile::AddIgnoredActor(AActor* ActorToIgnore)
@@ -309,6 +321,7 @@ void AWeaponArrowProjectile::StickArrowToHit(const FHitResult& Hit)
 	}
 
 	bStuck = true;
+	StopTrailFX();
 
 	if (ProjectileMovement)
 	{
@@ -334,4 +347,51 @@ void AWeaponArrowProjectile::StickArrowToHit(const FHitResult& Hit)
 	{
 		AttachToComponent(HitComponent, FAttachmentTransformRules::KeepWorldTransform, Hit.BoneName);
 	}
+}
+
+void AWeaponArrowProjectile::StartTrailFX()
+{
+	if (!TrailFX || !bActivateTrailImmediately)
+	{
+		return;
+	}
+
+	TrailFX->SetPaused(false);
+	TrailFX->Activate(true);
+
+	if (TrailWarmupTickCount > 0 && TrailWarmupTickDelta > 0.0f)
+	{
+		TrailFX->AdvanceSimulation(TrailWarmupTickCount, TrailWarmupTickDelta);
+	}
+}
+
+void AWeaponArrowProjectile::StopTrailFX()
+{
+	if (!TrailFX || !bDestroyTrailOnImpact)
+	{
+		return;
+	}
+
+	TrailFX->Deactivate();
+
+	if (TrailDestroyDelay <= 0.0f)
+	{
+		TrailFX->DestroyComponent();
+		TrailFX = nullptr;
+		return;
+	}
+
+	UNiagaraComponent* TrailToDestroy = TrailFX;
+	TrailFX = nullptr;
+	GetWorldTimerManager().SetTimer(
+		TrailDestroyTimerHandle,
+		FTimerDelegate::CreateLambda([TrailToDestroy]()
+		{
+			if (TrailToDestroy)
+			{
+				TrailToDestroy->DestroyComponent();
+			}
+		}),
+		TrailDestroyDelay,
+		false);
 }

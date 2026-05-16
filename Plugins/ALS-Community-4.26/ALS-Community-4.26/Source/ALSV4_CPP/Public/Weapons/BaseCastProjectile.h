@@ -216,6 +216,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Impact")
 	UParticleSystem* ImpactParticle = nullptr;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Impact")
+	FVector ImpactFXScale = FVector(1.0f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Impact")
+	float ImpactFXSurfaceOffset = 8.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Impact")
+	bool bOrientImpactFXToSurface = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Impact")
+	bool bUseProjectileFacingForFlatImpacts = true;
+
 protected:
 	virtual void BeginPlay() override;
 

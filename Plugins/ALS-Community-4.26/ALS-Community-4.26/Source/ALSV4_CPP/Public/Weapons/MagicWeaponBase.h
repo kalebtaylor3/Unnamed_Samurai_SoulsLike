@@ -29,6 +29,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Magic|Base Cast")
 	UAnimMontage* BaseCastMontage = nullptr;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Magic|Base Cast", meta = (ClampMin = "0.0"))
+	float BaseCastReleaseDelay = 0.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Magic|Base Cast")
 	TSubclassOf<AActor> BaseCastActorClass;
 

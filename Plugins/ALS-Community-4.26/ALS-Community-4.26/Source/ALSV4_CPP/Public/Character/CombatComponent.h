@@ -5,6 +5,8 @@
 #include <Weapons/WeaponBase.h>
 #include "CombatComponent.generated.h"
 
+class UMagicWeaponBase;
+class USpellBase;
 
 UENUM(BlueprintType)
 enum class ECombatStance : uint8
@@ -87,6 +89,7 @@ private:
 	FTimerHandle BowDrawReadyTimer;
 	FTimerHandle StanceChangeCooldownTimer;
 	FTimerHandle MagicCastEndTimer;
+	FTimerHandle MagicSpellReleaseTimer;
 
 	void PlayChargeLoopMontage();
 	void FinishBowDraw();
@@ -96,6 +99,8 @@ private:
 	float PlayMagicCastMontage(UAnimMontage* Montage);
 	void BeginMagicCast(float CastDuration);
 	void FinishMagicCast();
+	void ReleaseBaseMagic(UMagicWeaponBase* MagicWeapon);
+	void ReleaseEquippedSpell(UMagicWeaponBase* MagicWeapon, USpellBase* Spell);
 	bool FireBow();
 	void ShowBowPreviewArrow();
 	void HideBowPreviewArrow();

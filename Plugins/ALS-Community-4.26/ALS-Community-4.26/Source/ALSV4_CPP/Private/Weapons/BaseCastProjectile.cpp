@@ -1002,19 +1002,38 @@ void ABaseCastProjectile::HandleWorldHit(AActor* HitActor, const FHitResult& Hit
 
 void ABaseCastProjectile::SpawnImpactFX(const FHitResult& Hit) const
 {
-	const FVector EffectLocation = Hit.ImpactPoint.IsNearlyZero() ? GetActorLocation() : FVector(Hit.ImpactPoint);
-	const FRotator EffectRotation = Hit.ImpactNormal.IsNearlyZero()
-		? (-GetActorForwardVector()).Rotation()
-		: Hit.ImpactNormal.Rotation();
+	const FVector ImpactPoint = Hit.ImpactPoint.IsNearlyZero() ? GetActorLocation() : FVector(Hit.ImpactPoint);
+	const FVector ImpactNormal = Hit.ImpactNormal.IsNearlyZero() ? -GetActorForwardVector() : FVector(Hit.ImpactNormal).GetSafeNormal();
+	const FVector EffectLocation = ImpactPoint + ImpactNormal * ImpactFXSurfaceOffset;
+
+	FRotator EffectRotation = FRotator::ZeroRotator;
+	if (bOrientImpactFXToSurface && !ImpactNormal.IsNearlyZero())
+	{
+		EffectRotation = ImpactNormal.Rotation();
+	}
+	else if (bUseProjectileFacingForFlatImpacts)
+	{
+		EffectRotation = GetActorRotation();
+	}
 
 	if (ImpactNiagara)
 	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), ImpactNiagara, EffectLocation, EffectRotation);
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(),
+			ImpactNiagara,
+			EffectLocation,
+			EffectRotation,
+			ImpactFXScale);
 	}
 
 	if (ImpactParticle)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticle, EffectLocation, EffectRotation);
+		UGameplayStatics::SpawnEmitterAtLocation(
+			GetWorld(),
+			ImpactParticle,
+			EffectLocation,
+			EffectRotation,
+			ImpactFXScale);
 	}
 }
 
