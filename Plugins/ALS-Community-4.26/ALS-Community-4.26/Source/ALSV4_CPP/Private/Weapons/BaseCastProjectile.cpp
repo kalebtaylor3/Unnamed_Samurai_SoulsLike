@@ -7,14 +7,16 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "DrawDebugHelpers.h"
+#include "Engine/Engine.h"
 #include "Engine/EngineTypes.h"
 #include "Engine/OverlapResult.h"
-#include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
+#include "UObject/UObjectIterator.h"
 
 ABaseCastProjectile::ABaseCastProjectile()
 {
@@ -125,6 +127,11 @@ void ABaseCastProjectile::Tick(float DeltaSeconds)
 
 	const FVector CurrentLocation = GetActorLocation();
 	if (PreviousLocation.Equals(CurrentLocation, KINDA_SMALL_NUMBER))
+	{
+		return;
+	}
+
+	if (TryCatchHeatSeekTarget(PreviousLocation, CurrentLocation))
 	{
 		return;
 	}
@@ -249,6 +256,22 @@ bool ABaseCastProjectile::IsIgnoredActor(const AActor* Actor) const
 	return false;
 }
 
+bool ABaseCastProjectile::IsValidHeatSeekTarget(AActor* Candidate) const
+{
+	if (!Candidate || Candidate == this || Candidate == Caster || IsIgnoredActor(Candidate))
+	{
+		return false;
+	}
+
+	UEnemyHealthComponent* Health = Candidate->FindComponentByClass<UEnemyHealthComponent>();
+	if (Health && Health->IsDeadOrOutOfHealth())
+	{
+		return false;
+	}
+
+	return Health || (!EnemyTargetTag.IsNone() && Candidate->ActorHasTag(EnemyTargetTag));
+}
+
 AActor* ABaseCastProjectile::GetLockedTargetFromCaster() const
 {
 	const AALSBaseCharacter* ALSCaster = Cast<AALSBaseCharacter>(Caster);
@@ -274,6 +297,7 @@ AActor* ABaseCastProjectile::FindBestTarget() const
 {
 	if (!Caster || !GetWorld())
 	{
+		DebugTargetingMessage(TEXT("Magic target scan skipped: no caster/world."), FColor::Red);
 		return nullptr;
 	}
 
@@ -281,60 +305,177 @@ AActor* ABaseCastProjectile::FindBestTarget() const
 	{
 		if (AActor* LockedTarget = GetLockedTargetFromCaster())
 		{
-			if (FVector::Dist(Caster->GetActorLocation(), LockedTarget->GetActorLocation()) <= TargetSearchRange)
+			const bool bLockedTargetValid = IsValidHeatSeekTarget(LockedTarget);
+			const bool bLockedTargetInRange = FVector::Dist(Caster->GetActorLocation(), GetTargetAimLocation(LockedTarget)) <= TargetSearchRange;
+
+			if (bLockedTargetValid && bLockedTargetInRange)
 			{
+				DebugTargetingMessage(FString::Printf(TEXT("Magic target acquired from lock-on: %s"), *LockedTarget->GetName()), FColor::Green);
+				if (bDebugTargeting)
+				{
+					DrawDebugLine(GetWorld(), GetActorLocation(), GetTargetAimLocation(LockedTarget), FColor::Green, false, TargetDebugDrawDuration, 0, 2.0f);
+				}
 				return LockedTarget;
 			}
 		}
 	}
 
-	if (!bAutoFindTarget)
+	if (!bAutoFindTarget && !bAlwaysHeatSeekEnemies)
 	{
+		DebugTargetingMessage(TEXT("Magic target scan skipped: bAutoFindTarget is false."), FColor::Yellow);
 		return nullptr;
 	}
 
 	AActor* BestTarget = nullptr;
 	float BestScore = FLT_MAX;
+	int32 ScannedHealthComponents = 0;
+	int32 ScannedOverlaps = 0;
+	int32 ScannedTaggedActors = 0;
+	int32 RejectedIgnored = 0;
+	int32 RejectedDead = 0;
+	int32 RejectedRange = 0;
+	int32 RejectedForward = 0;
 
 	const FVector SearchOrigin = bHasLaunched ? GetActorLocation() : Caster->GetActorLocation();
 	const FVector Forward = GetCasterAimForward();
+	const bool bIgnoreForwardCone = bAlwaysHeatSeekEnemies || TargetForwardDotThreshold <= -1.0f;
 
-	for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+	auto ConsiderCandidate = [&](AActor* Candidate)
 	{
-		AActor* Candidate = *It;
-		if (!Candidate || IsIgnoredActor(Candidate))
+		if (!Candidate || Candidate == this || Candidate == Caster || IsIgnoredActor(Candidate))
 		{
-			continue;
+			++RejectedIgnored;
+			return;
 		}
 
 		UEnemyHealthComponent* Health = Candidate->FindComponentByClass<UEnemyHealthComponent>();
-		if (!Health || Health->IsDeadOrOutOfHealth())
+		const bool bHasEnemyTag = !EnemyTargetTag.IsNone() && Candidate->ActorHasTag(EnemyTargetTag);
+		if (!Health && !bHasEnemyTag)
 		{
-			continue;
+			++RejectedIgnored;
+			return;
 		}
 
-		const FVector ToTarget = Candidate->GetActorLocation() - SearchOrigin;
-		const float Distance = ToTarget.Size();
-		if (Distance <= KINDA_SMALL_NUMBER)
+		if (Health && Health->IsDeadOrOutOfHealth())
 		{
-			continue;
+			++RejectedDead;
+			return;
+		}
+
+		const FVector TargetLocation = GetTargetAimLocation(Candidate);
+		const FVector ToTarget = TargetLocation - SearchOrigin;
+		const float Distance = ToTarget.Size();
+		if (Distance <= KINDA_SMALL_NUMBER || Distance > TargetSearchRange)
+		{
+			++RejectedRange;
+			return;
 		}
 
 		const float ForwardDot = FVector::DotProduct(Forward, ToTarget.GetSafeNormal());
-		if (ForwardDot < TargetForwardDotThreshold)
+		if (!bIgnoreForwardCone && ForwardDot < TargetForwardDotThreshold)
 		{
-			continue;
+			++RejectedForward;
+			return;
 		}
 
-		const float Score = Distance + ((1.0f - ForwardDot) * 600.0f);
+		const float Score = bAlwaysHeatSeekEnemies ? Distance : Distance + ((1.0f - ForwardDot) * 600.0f);
 		if (Score < BestScore)
 		{
 			BestScore = Score;
 			BestTarget = Candidate;
 		}
+	};
+
+	for (TObjectIterator<UEnemyHealthComponent> It; It; ++It)
+	{
+		UEnemyHealthComponent* Health = *It;
+		if (!Health || Health->GetWorld() != GetWorld())
+		{
+			continue;
+		}
+
+		++ScannedHealthComponents;
+		ConsiderCandidate(Health->GetOwner());
+	}
+
+	TArray<FOverlapResult> Overlaps;
+	FCollisionQueryParams QueryParams(FName(TEXT("MagicHeatSeekTargetScan")), false, this);
+	QueryParams.AddIgnoredActor(this);
+	QueryParams.AddIgnoredActor(Caster);
+	for (AActor* Ignored : IgnoredActors)
+	{
+		if (Ignored)
+		{
+			QueryParams.AddIgnoredActor(Ignored);
+		}
+	}
+
+	const FCollisionShape SearchShape = FCollisionShape::MakeSphere(TargetSearchRange);
+	if (GetWorld()->OverlapMultiByObjectType(
+		Overlaps,
+		SearchOrigin,
+		FQuat::Identity,
+		FCollisionObjectQueryParams(ECC_Pawn),
+		SearchShape,
+		QueryParams))
+	{
+		for (const FOverlapResult& Overlap : Overlaps)
+		{
+			++ScannedOverlaps;
+			ConsiderCandidate(Overlap.GetActor());
+		}
+	}
+
+	if (!EnemyTargetTag.IsNone())
+	{
+		TArray<AActor*> TaggedActors;
+		UGameplayStatics::GetAllActorsWithTag(GetWorld(), EnemyTargetTag, TaggedActors);
+		for (AActor* TaggedActor : TaggedActors)
+		{
+			++ScannedTaggedActors;
+			ConsiderCandidate(TaggedActor);
+		}
+	}
+
+	if (bDebugTargeting)
+	{
+		DrawDebugSphere(GetWorld(), SearchOrigin, TargetSearchRange, 32, BestTarget ? FColor::Green : FColor::Red, false, TargetDebugDrawDuration, 0, 1.5f);
+		if (BestTarget)
+		{
+			DrawDebugLine(GetWorld(), SearchOrigin, GetTargetAimLocation(BestTarget), FColor::Green, false, TargetDebugDrawDuration, 0, 2.5f);
+			DrawDebugSphere(GetWorld(), GetTargetAimLocation(BestTarget), 28.0f, 12, FColor::Green, false, TargetDebugDrawDuration, 0, 2.0f);
+		}
+
+		const FString TargetName = BestTarget ? BestTarget->GetName() : TEXT("none");
+		DebugTargetingMessage(
+			FString::Printf(TEXT("Magic target scan: health=%d overlaps=%d tagged=%d ignored=%d dead=%d range=%d forward=%d target=%s"),
+				ScannedHealthComponents,
+				ScannedOverlaps,
+				ScannedTaggedActors,
+				RejectedIgnored,
+				RejectedDead,
+				RejectedRange,
+				RejectedForward,
+				*TargetName),
+			BestTarget ? FColor::Green : FColor::Red);
 	}
 
 	return BestTarget;
+}
+
+void ABaseCastProjectile::DebugTargetingMessage(const FString& Message, const FColor& Color) const
+{
+	if (!bDebugTargeting)
+	{
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("%s"), *Message);
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(static_cast<uint64>(GetUniqueID()), TargetDebugDrawDuration, Color, Message);
+	}
 }
 
 USceneComponent* ABaseCastProjectile::GetTargetHomingComponent(AActor* TargetActor) const
@@ -408,12 +549,13 @@ FVector ABaseCastProjectile::GetCasterAimForward() const
 
 void ABaseCastProjectile::RefreshHomingTarget()
 {
-	if (!bUseHoming || !ProjectileMovement)
+	const bool bShouldHeatSeek = bUseHoming || bAlwaysHeatSeekEnemies;
+	if (!bShouldHeatSeek || !ProjectileMovement)
 	{
 		return;
 	}
 
-	if (!HomingTarget || IsIgnoredActor(HomingTarget))
+	if (!IsValidHeatSeekTarget(HomingTarget))
 	{
 		HomingTarget = FindBestTarget();
 	}
@@ -513,6 +655,7 @@ void ABaseCastProjectile::LaunchProjectile()
 
 	if (ProjectileMovement)
 	{
+		RefreshHomingTarget();
 		SetActorRotation(GetForwardLaunchDirection().Rotation());
 		ProjectileMovement->Activate(true);
 		ApplyInitialVelocity();
@@ -531,20 +674,17 @@ void ABaseCastProjectile::UpdateMagicMotion(float DeltaSeconds)
 	TimeSinceLaunch += DeltaSeconds;
 	TimeSinceTargetAcquire += DeltaSeconds;
 
-	if (bUseHoming && bContinuouslyAcquireTargets && TimeSinceTargetAcquire >= TargetAcquireInterval)
+	const bool bShouldHeatSeek = bUseHoming || bAlwaysHeatSeekEnemies;
+	if (bShouldHeatSeek && !IsValidHeatSeekTarget(HomingTarget))
+	{
+		HomingTarget = FindBestTarget();
+	}
+
+	if (bShouldHeatSeek && (bContinuouslyAcquireTargets || !HomingTarget) && TimeSinceTargetAcquire >= TargetAcquireInterval)
 	{
 		TimeSinceTargetAcquire = 0.0f;
 
-		bool bNeedsNewTarget = !HomingTarget || IsIgnoredActor(HomingTarget);
-		if (!bNeedsNewTarget)
-		{
-			if (UEnemyHealthComponent* Health = HomingTarget->FindComponentByClass<UEnemyHealthComponent>())
-			{
-				bNeedsNewTarget = Health->IsDeadOrOutOfHealth();
-			}
-		}
-
-		if (bNeedsNewTarget)
+		if (!IsValidHeatSeekTarget(HomingTarget))
 		{
 			HomingTarget = FindBestTarget();
 		}
@@ -563,25 +703,62 @@ void ABaseCastProjectile::UpdateMagicMotion(float DeltaSeconds)
 	}
 
 	FVector DesiredDirection = CurrentDirection;
-	if (bUseHoming && HomingTarget && TimeSinceLaunch >= HomingDelayAfterLaunch)
+	if (bShouldHeatSeek && HomingTarget && (bAlwaysHeatSeekEnemies || TimeSinceLaunch >= HomingDelayAfterLaunch))
 	{
 		DesiredDirection = GetDesiredLaunchDirection();
-		const float HomingAlpha = HomingRampDuration > 0.0f
-			? FMath::Clamp(TimeSinceLaunch / HomingRampDuration, 0.0f, 1.0f)
-			: 1.0f;
-		const float CurrentTurnSpeed = HomingTurnSpeed * FMath::InterpEaseIn(0.0f, 1.0f, HomingAlpha, 2.0f);
-		DesiredDirection = FMath::VInterpNormalRotationTo(CurrentDirection, DesiredDirection, DeltaSeconds, CurrentTurnSpeed);
+		if (!bAlwaysHeatSeekEnemies)
+		{
+			const float HomingAlpha = HomingRampDuration > 0.0f
+				? FMath::Clamp(TimeSinceLaunch / HomingRampDuration, 0.0f, 1.0f)
+				: 1.0f;
+			const float CurrentTurnSpeed = HomingTurnSpeed * FMath::InterpEaseIn(0.0f, 1.0f, HomingAlpha, 2.0f);
+			DesiredDirection = FMath::VInterpNormalRotationTo(CurrentDirection, DesiredDirection, DeltaSeconds, CurrentTurnSpeed);
+		}
 	}
 
 	ProjectileMovement->Velocity = DesiredDirection * CurrentSpeed;
+	if (!DesiredDirection.IsNearlyZero())
+	{
+		SetActorRotation(DesiredDirection.Rotation());
+	}
 
-	if (bUseHoming)
+	if (bShouldHeatSeek)
 	{
 		const float HomingAlpha = HomingRampDuration > 0.0f
 			? FMath::Clamp(TimeSinceLaunch / HomingRampDuration, 0.0f, 1.0f)
 			: 1.0f;
 		ProjectileMovement->HomingAccelerationMagnitude = HomingAccelerationMagnitude * FMath::InterpEaseIn(0.0f, 1.0f, HomingAlpha, 2.0f);
 	}
+}
+
+bool ABaseCastProjectile::TryCatchHeatSeekTarget(const FVector& TraceStart, const FVector& TraceEnd)
+{
+	if (!bAlwaysHeatSeekEnemies || !IsValidHeatSeekTarget(HomingTarget) || HeatSeekCatchRadius <= 0.0f)
+	{
+		return false;
+	}
+
+	const FVector TargetLocation = GetTargetAimLocation(HomingTarget);
+	const FVector Segment = TraceEnd - TraceStart;
+	const float SegmentLengthSquared = Segment.SizeSquared();
+	const float SegmentAlpha = SegmentLengthSquared > KINDA_SMALL_NUMBER
+		? FMath::Clamp(FVector::DotProduct(TargetLocation - TraceStart, Segment) / SegmentLengthSquared, 0.0f, 1.0f)
+		: 1.0f;
+	const FVector ClosestPoint = TraceStart + Segment * SegmentAlpha;
+
+	if (FVector::DistSquared(ClosestPoint, TargetLocation) > FMath::Square(HeatSeekCatchRadius))
+	{
+		return false;
+	}
+
+	FHitResult Hit;
+	Hit.Location = ClosestPoint;
+	Hit.ImpactPoint = TargetLocation;
+	Hit.ImpactNormal = (TraceStart - TargetLocation).GetSafeNormal();
+	Hit.Normal = Hit.ImpactNormal;
+
+	HandleEnemyHit(HomingTarget, Hit);
+	return true;
 }
 
 void ABaseCastProjectile::UpdateVisualSpiral()
@@ -654,7 +831,7 @@ void ABaseCastProjectile::ApplyInitialVelocity()
 	ProjectileMovement->Velocity = LaunchDirection * StartingSpeed;
 	SetActorRotation(LaunchDirection.Rotation());
 
-	if (bUseHoming)
+	if (bUseHoming || bAlwaysHeatSeekEnemies)
 	{
 		ProjectileMovement->HomingAccelerationMagnitude = bUseMagicLaunchStyle ? 0.0f : HomingAccelerationMagnitude;
 	}

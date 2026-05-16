@@ -100,6 +100,9 @@ public:
 	bool bUseHoming = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Homing")
+	bool bAlwaysHeatSeekEnemies = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Homing")
 	float HomingAccelerationMagnitude = 3200.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Homing")
@@ -134,6 +137,18 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Homing")
 	float MinimumLaunchPitch = 3.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Homing")
+	FName EnemyTargetTag = TEXT("Enemy");
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Homing", meta = (ClampMin = "0.0"))
+	float HeatSeekCatchRadius = 120.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Debug")
+	bool bDebugTargeting = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Debug", meta = (EditCondition = "bDebugTargeting", ClampMin = "0.0"))
+	float TargetDebugDrawDuration = 1.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic Projectile|Trace")
 	bool bSweepBetweenFrames = true;
@@ -175,8 +190,10 @@ protected:
 private:
 	void AddIgnoredActor(AActor* ActorToIgnore);
 	bool IsIgnoredActor(const AActor* Actor) const;
+	bool IsValidHeatSeekTarget(AActor* Candidate) const;
 	AActor* GetLockedTargetFromCaster() const;
 	AActor* FindBestTarget() const;
+	void DebugTargetingMessage(const FString& Message, const FColor& Color) const;
 	USceneComponent* GetTargetHomingComponent(AActor* TargetActor) const;
 	FVector GetTargetAimLocation(AActor* TargetActor) const;
 	FVector GetCasterAimForward() const;
@@ -186,6 +203,7 @@ private:
 	void LaunchProjectile();
 	void UpdateMagicMotion(float DeltaSeconds);
 	void UpdateVisualSpiral();
+	bool TryCatchHeatSeekTarget(const FVector& TraceStart, const FVector& TraceEnd);
 	FVector GetForwardLaunchDirection() const;
 	FVector GetDesiredLaunchDirection() const;
 	void ApplyInitialVelocity();
