@@ -3,6 +3,7 @@
 #include "Character/ALSBaseCharacter.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "Weapons/BaseCastBeam.h"
 #include "Weapons/BaseCastProjectile.h"
 #include "Weapons/HeldWeaponBase.h"
 #include "Weapons/SpellBase.h"
@@ -51,6 +52,10 @@ bool UMagicWeaponBase::SpawnMagicActor(AALSBaseCharacter* Caster, TSubclassOf<AA
 	if (ABaseCastProjectile* MagicProjectile = Cast<ABaseCastProjectile>(SpawnedActor))
 	{
 		MagicProjectile->InitializeMagicProjectile(Caster);
+	}
+	else if (ABaseCastBeam* MagicBeam = Cast<ABaseCastBeam>(SpawnedActor))
+	{
+		MagicBeam->InitializeMagicBeam(Caster);
 	}
 
 	return SpawnedActor != nullptr;
