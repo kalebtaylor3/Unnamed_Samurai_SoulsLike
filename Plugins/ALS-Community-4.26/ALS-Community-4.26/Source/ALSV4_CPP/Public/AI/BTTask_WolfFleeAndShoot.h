@@ -28,6 +28,12 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Flee", meta = (ClampMin = "0.1"))
 	float MaxFleeTravelTime = 4.0f;
 
+	UPROPERTY(EditAnywhere, Category = "Flee", meta = (ClampMin = "0.0", ClampMax = "180.0"))
+	float EscapeAngleRandomnessDegrees = 45.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Flee", meta = (ClampMin = "0.0"))
+	float RepositionDistanceBuffer = 125.0f;
+
 	UPROPERTY(EditAnywhere, Category = "Shoot", meta = (ClampMin = "0.0"))
 	float PostShotHoldTime = 0.15f;
 
@@ -48,6 +54,7 @@ private:
 	UPROPERTY()
 	UEnemyWolfCombatComponent* ActiveWolfCombat = nullptr;
 
+	bool StartFleeMove(UBehaviorTreeComponent& OwnerComp);
 	void BeginShootFacingPhase(UBehaviorTreeComponent& OwnerComp);
 	void BeginShotMontagePhase();
 	void FinishFleeShootTask(UBehaviorTreeComponent& OwnerComp, EBTNodeResult::Type Result);

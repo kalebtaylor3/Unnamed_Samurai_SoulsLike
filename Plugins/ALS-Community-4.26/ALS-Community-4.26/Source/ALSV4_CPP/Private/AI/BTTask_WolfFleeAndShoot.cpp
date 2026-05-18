@@ -37,32 +37,7 @@ EBTNodeResult::Type UBTTask_WolfFleeAndShoot::ExecuteTask(UBehaviorTreeComponent
 		return EBTNodeResult::Failed;
 	}
 
-	FVector AwayFromTarget = (AIPawn->GetActorLocation() - Target->GetActorLocation()).GetSafeNormal2D();
-	if (AwayFromTarget.IsNearlyZero())
-	{
-		AwayFromTarget = -Target->GetActorForwardVector().GetSafeNormal2D();
-	}
-
-	FVector DesiredLocation = Target->GetActorLocation() + AwayFromTarget * ActiveWolfCombat->LowHealthShotClearDistance;
-	if (UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(AIPawn))
-	{
-		FNavLocation NavLocation;
-		if (NavSys->ProjectPointToNavigation(DesiredLocation, NavLocation, FVector(350.0f, 350.0f, 300.0f)))
-		{
-			DesiredLocation = NavLocation.Location;
-		}
-	}
-
-	ActiveWolfCombat->BeginLowHealthFlee();
-	AIController->MoveToLocation(DesiredLocation, ClearDistanceTolerance);
-
-	ActiveFleeLocation = DesiredLocation;
-	ActiveElapsedTime = 0.0f;
-	ActiveShootDuration = 0.0f;
-	bShotMontageStarted = false;
-	Phase = EWolfFleeShootPhase::MovingAway;
-
-	return EBTNodeResult::InProgress;
+	return StartFleeMove(OwnerComp) ? EBTNodeResult::InProgress : EBTNodeResult::Failed;
 }
 
 void UBTTask_WolfFleeAndShoot::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
@@ -79,6 +54,12 @@ void UBTTask_WolfFleeAndShoot::TickTask(UBehaviorTreeComponent& OwnerComp, uint8
 	ActiveElapsedTime += DeltaSeconds;
 	AActor* Target = Cast<AActor>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName));
 	if (!Target)
+	{
+		FinishFleeShootTask(OwnerComp, EBTNodeResult::Failed);
+		return;
+	}
+
+	if (!bShotMontageStarted && !ActiveWolfCombat->WantsLowHealthFleeAndShoot())
 	{
 		FinishFleeShootTask(OwnerComp, EBTNodeResult::Failed);
 		return;
@@ -102,21 +83,88 @@ void UBTTask_WolfFleeAndShoot::TickTask(UBehaviorTreeComponent& OwnerComp, uint8
 		break;
 	}
 	case EWolfFleeShootPhase::FacingPlayer:
+	{
+		const float DistanceToTarget = FVector::Dist2D(AIPawn->GetActorLocation(), Target->GetActorLocation());
+		if (DistanceToTarget < ActiveWolfCombat->LowHealthShotClearDistance - RepositionDistanceBuffer)
+		{
+			StartFleeMove(OwnerComp);
+			break;
+		}
+
 		if (ActiveWolfCombat->IsFacingTargetForLowHealthShot() && ActiveWolfCombat->IsLowHealthShotReady())
 		{
 			BeginShotMontagePhase();
 		}
 		break;
+	}
 	case EWolfFleeShootPhase::Shooting:
 		if (ActiveElapsedTime >= ActiveShootDuration + PostShotHoldTime)
 		{
-			FinishFleeShootTask(OwnerComp, EBTNodeResult::Succeeded);
+			ActiveWolfCombat->FinishLowHealthShoot();
+			if (ActiveWolfCombat->WantsLowHealthFleeAndShoot())
+			{
+				if (!StartFleeMove(OwnerComp))
+				{
+					FinishFleeShootTask(OwnerComp, EBTNodeResult::Failed);
+				}
+			}
+			else
+			{
+				FinishFleeShootTask(OwnerComp, EBTNodeResult::Succeeded);
+			}
 		}
 		break;
 	default:
 		FinishFleeShootTask(OwnerComp, EBTNodeResult::Failed);
 		break;
 	}
+}
+
+bool UBTTask_WolfFleeAndShoot::StartFleeMove(UBehaviorTreeComponent& OwnerComp)
+{
+	AAIController* AIController = OwnerComp.GetAIOwner();
+	APawn* AIPawn = AIController ? AIController->GetPawn() : nullptr;
+	UBlackboardComponent* Blackboard = OwnerComp.GetBlackboardComponent();
+	if (!AIController || !AIPawn || !Blackboard || !ActiveWolfCombat || !ActiveWolfCombat->WantsLowHealthFleeAndShoot())
+	{
+		return false;
+	}
+
+	const AActor* Target = Cast<AActor>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName));
+	if (!Target)
+	{
+		return false;
+	}
+
+	FVector AwayFromTarget = (AIPawn->GetActorLocation() - Target->GetActorLocation()).GetSafeNormal2D();
+	if (AwayFromTarget.IsNearlyZero())
+	{
+		AwayFromTarget = -Target->GetActorForwardVector().GetSafeNormal2D();
+	}
+
+	const float RandomYaw = FMath::RandRange(-EscapeAngleRandomnessDegrees, EscapeAngleRandomnessDegrees);
+	AwayFromTarget = AwayFromTarget.RotateAngleAxis(RandomYaw, FVector::UpVector).GetSafeNormal2D();
+
+	FVector DesiredLocation = Target->GetActorLocation() + AwayFromTarget * ActiveWolfCombat->LowHealthShotClearDistance;
+	if (UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(AIPawn))
+	{
+		FNavLocation NavLocation;
+		if (NavSys->ProjectPointToNavigation(DesiredLocation, NavLocation, FVector(350.0f, 350.0f, 300.0f)))
+		{
+			DesiredLocation = NavLocation.Location;
+		}
+	}
+
+	ActiveWolfCombat->BeginLowHealthFlee();
+	AIController->MoveToLocation(DesiredLocation, ClearDistanceTolerance);
+
+	ActiveFleeLocation = DesiredLocation;
+	ActiveElapsedTime = 0.0f;
+	ActiveShootDuration = 0.0f;
+	bShotMontageStarted = false;
+	Phase = EWolfFleeShootPhase::MovingAway;
+
+	return true;
 }
 
 void UBTTask_WolfFleeAndShoot::BeginShootFacingPhase(UBehaviorTreeComponent& OwnerComp)

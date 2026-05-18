@@ -552,6 +552,7 @@ void UEnemyWolfCombatComponent::BeginLowHealthFlee()
 	bLowHealthShotCommitted = false;
 	StopCircleWarningMontage();
 	EndCircleFacingLock();
+	BeginCircleFacingLock();
 	EnterState(EWolfAIState::Fleeing);
 	ApplyWalkSpeed(LowHealthShotMoveSpeed);
 }
@@ -625,6 +626,7 @@ void UEnemyWolfCombatComponent::FinishLowHealthShoot()
 	}
 	bLowHealthShotCommitted = false;
 	StopLowHealthShotMontage();
+	EndCircleFacingLock();
 	RestoreMovementAfterAction();
 	EnterState(EWolfAIState::Chasing);
 	if (Blackboard)
