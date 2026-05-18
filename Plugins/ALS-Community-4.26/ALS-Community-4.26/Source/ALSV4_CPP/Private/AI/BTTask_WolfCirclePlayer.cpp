@@ -71,7 +71,7 @@ EBTNodeResult::Type UBTTask_WolfCirclePlayer::ExecuteTask(UBehaviorTreeComponent
 	ActiveDesiredLocation = DesiredLocation;
 	ActiveTravelTime = 0.0f;
 	ActiveHoldTime = 0.0f;
-	ActiveHoldDuration = CircleDuration;
+	ActiveHoldDuration = 0.0f;
 	bHoldingAtCirclePoint = false;
 	bCircleWarningStarted = false;
 
@@ -98,7 +98,11 @@ void UBTTask_WolfCirclePlayer::TickTask(UBehaviorTreeComponent& OwnerComp, uint8
 			}
 
 			ActiveWolfCombat->PlayCircleWarningMontage();
-			ActiveHoldDuration = CircleDuration;
+			const float MinDuration = FMath::Max(0.0f, MinCircleDuration);
+			const float MaxDuration = FMath::Max(MinDuration, MaxCircleDuration);
+			ActiveHoldDuration = MaxDuration > MinDuration
+				? FMath::FRandRange(MinDuration, MaxDuration)
+				: (MinDuration > 0.0f ? MinDuration : CircleDuration);
 			ActiveHoldTime = 0.0f;
 			bCircleWarningStarted = true;
 		}
@@ -150,7 +154,7 @@ void UBTTask_WolfCirclePlayer::BeginCircleHold(UBehaviorTreeComponent& OwnerComp
 	bHoldingAtCirclePoint = true;
 	bCircleWarningStarted = false;
 	ActiveHoldTime = 0.0f;
-	ActiveHoldDuration = CircleDuration;
+	ActiveHoldDuration = 0.0f;
 }
 
 void UBTTask_WolfCirclePlayer::FinishCircleTask(UBehaviorTreeComponent& OwnerComp, EBTNodeResult::Type Result)

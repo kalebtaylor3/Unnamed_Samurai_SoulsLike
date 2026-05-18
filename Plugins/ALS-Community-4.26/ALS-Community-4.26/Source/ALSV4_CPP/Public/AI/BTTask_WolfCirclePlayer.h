@@ -30,8 +30,14 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Circle", meta = (ClampMin = "0.0"))
 	float SideStepDistance = 300.0f;
 
-	UPROPERTY(EditAnywhere, Category = "Circle")
+	UPROPERTY()
 	float CircleDuration = 1.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Circle", meta = (ClampMin = "0.0"))
+	float MinCircleDuration = 0.5f;
+
+	UPROPERTY(EditAnywhere, Category = "Circle", meta = (ClampMin = "0.0"))
+	float MaxCircleDuration = 1.25f;
 
 	UPROPERTY(EditAnywhere, Category = "Circle", meta = (ClampMin = "0.1"))
 	float MaxTravelTime = 4.0f;
