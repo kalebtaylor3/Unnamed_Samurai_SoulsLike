@@ -9,6 +9,7 @@
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Engine/HitResult.h"
 #include "Kismet/GameplayStatics.h"
 
 UEnemyWolfCombatComponent::UEnemyWolfCombatComponent()
@@ -73,6 +74,13 @@ void UEnemyWolfCombatComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 	{
 		FaceTargetDuringCircle(DeltaTime);
 	}
+
+	if (CurrentState == EWolfAIState::Shooting && bFaceTargetWhileLowHealthShooting)
+	{
+		FaceTargetDuringLowHealthShot(DeltaTime);
+	}
+
+	RequestLowHealthShotIfNeeded();
 }
 
 void UEnemyWolfCombatComponent::PerformAttack()
@@ -304,15 +312,19 @@ void UEnemyWolfCombatComponent::HandleOwnerHit(AActor* InstigatorActor)
 	bIsAttacking = false;
 	bShouldRotateToTarget = false;
 	bFaceTargetWhileCircling = false;
+	bFaceTargetWhileLowHealthShooting = false;
+	bLowHealthShotCommitted = false;
 	ActiveAttackMontage = nullptr;
 	EndBiteDamageWindow();
 	StopCircleWarningMontage();
+	StopLowHealthShotMontage();
 	EndCircleFacingLock();
 
 	if (GetWorld())
 	{
 		GetWorld()->GetTimerManager().ClearTimer(AttackFinishedTimer);
 		GetWorld()->GetTimerManager().ClearTimer(WasHitResetTimer);
+		GetWorld()->GetTimerManager().ClearTimer(LowHealthShotTraceTimer);
 	}
 
 	RestoreMovementAfterAction();
@@ -347,16 +359,20 @@ void UEnemyWolfCombatComponent::HandleOwnerDeath()
 	bIsAttacking = false;
 	bShouldRotateToTarget = false;
 	bFaceTargetWhileCircling = false;
+	bFaceTargetWhileLowHealthShooting = false;
+	bLowHealthShotCommitted = false;
 	ActiveAttackMontage = nullptr;
 	CurrentState = EWolfAIState::Idle;
 	EndBiteDamageWindow();
 	StopCircleWarningMontage();
+	StopLowHealthShotMontage();
 	EndCircleFacingLock();
 
 	if (GetWorld())
 	{
 		GetWorld()->GetTimerManager().ClearTimer(AttackFinishedTimer);
 		GetWorld()->GetTimerManager().ClearTimer(WasHitResetTimer);
+		GetWorld()->GetTimerManager().ClearTimer(LowHealthShotTraceTimer);
 	}
 
 	if (OwnerCharacter)
@@ -378,6 +394,7 @@ void UEnemyWolfCombatComponent::HandleOwnerDeath()
 		Blackboard->SetValueAsBool(WasHitKeyName, false);
 		Blackboard->SetValueAsBool(IsInAttackRangeKeyName, false);
 		Blackboard->SetValueAsBool(ShouldCircleKeyName, false);
+		Blackboard->SetValueAsBool(ShouldFleeAndShootKeyName, false);
 		Blackboard->ClearValue(TargetActorKey.SelectedKeyName);
 	}
 }
@@ -395,6 +412,14 @@ void UEnemyWolfCombatComponent::ClearShouldCircleFlag()
 	if (Blackboard)
 	{
 		Blackboard->SetValueAsBool(ShouldCircleKeyName, false);
+	}
+}
+
+void UEnemyWolfCombatComponent::ClearShouldFleeAndShootFlag()
+{
+	if (Blackboard)
+	{
+		Blackboard->SetValueAsBool(ShouldFleeAndShootKeyName, false);
 	}
 }
 
@@ -454,6 +479,190 @@ void UEnemyWolfCombatComponent::StopCircleWarningMontage()
 	}
 }
 
+bool UEnemyWolfCombatComponent::WantsLowHealthFleeAndShoot() const
+{
+	if (!OwnerCharacter || !Blackboard || !LowHealthShotMontage || IsDead())
+	{
+		return false;
+	}
+
+	if (CurrentState == EWolfAIState::Shooting && bLowHealthShotCommitted)
+	{
+		return true;
+	}
+
+	if (bIsAttacking && CurrentState != EWolfAIState::Fleeing && CurrentState != EWolfAIState::Shooting)
+	{
+		return false;
+	}
+
+	if (CanAttackCurrentTarget())
+	{
+		return false;
+	}
+
+	const AActor* Target = Cast<AActor>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName));
+	if (!Target)
+	{
+		return false;
+	}
+
+	const UEnemyHealthComponent* HealthComponent = OwnerCharacter->FindComponentByClass<UEnemyHealthComponent>();
+	if (!HealthComponent || HealthComponent->MaxHealth <= 0.0f)
+	{
+		return false;
+	}
+
+	const float HealthPercent = HealthComponent->CurrentHealth / HealthComponent->MaxHealth;
+	if (HealthPercent > LowHealthShotHealthPercent)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool UEnemyWolfCombatComponent::IsLowHealthShotReady() const
+{
+	if (CurrentState == EWolfAIState::Shooting && bLowHealthShotCommitted)
+	{
+		return false;
+	}
+
+	const UWorld* World = GetWorld();
+	if (!World || World->GetTimeSeconds() - LastLowHealthShotTime < LowHealthShotCooldown)
+	{
+		return false;
+	}
+
+	return WantsLowHealthFleeAndShoot();
+}
+
+bool UEnemyWolfCombatComponent::CanUseLowHealthShot() const
+{
+	return IsLowHealthShotReady();
+}
+
+void UEnemyWolfCombatComponent::BeginLowHealthFlee()
+{
+	bIsAttacking = true;
+	bShouldRotateToTarget = false;
+	bFaceTargetWhileCircling = false;
+	bFaceTargetWhileLowHealthShooting = false;
+	bLowHealthShotCommitted = false;
+	StopCircleWarningMontage();
+	EndCircleFacingLock();
+	EnterState(EWolfAIState::Fleeing);
+	ApplyWalkSpeed(LowHealthShotMoveSpeed);
+}
+
+void UEnemyWolfCombatComponent::BeginLowHealthShootFacing()
+{
+	if (!OwnerCharacter)
+	{
+		return;
+	}
+
+	if (AAIController* AIController = Cast<AAIController>(OwnerCharacter->GetController()))
+	{
+		AIController->StopMovement();
+	}
+
+	if (UCharacterMovementComponent* MovementComponent = OwnerCharacter->GetCharacterMovement())
+	{
+		MovementComponent->StopMovementImmediately();
+		MovementComponent->bOrientRotationToMovement = false;
+		MovementComponent->bUseControllerDesiredRotation = false;
+	}
+
+	OwnerCharacter->bUseControllerRotationYaw = false;
+	bFaceTargetWhileLowHealthShooting = true;
+	EnterState(EWolfAIState::Shooting);
+}
+
+float UEnemyWolfCombatComponent::PlayLowHealthShotMontage()
+{
+	if (!OwnerCharacter || !LowHealthShotMontage)
+	{
+		return 0.0f;
+	}
+
+	bLowHealthShotCommitted = true;
+
+	UAnimInstance* AnimInstance = OwnerCharacter->GetMesh() ? OwnerCharacter->GetMesh()->GetAnimInstance() : nullptr;
+	const float MontageDuration = AnimInstance
+		? AnimInstance->Montage_Play(LowHealthShotMontage, LowHealthShotMontagePlayRate)
+		: 0.0f;
+
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(LowHealthShotTraceTimer);
+		GetWorld()->GetTimerManager().SetTimer(
+			LowHealthShotTraceTimer,
+			this,
+			&UEnemyWolfCombatComponent::PerformLowHealthShotTrace,
+			LowHealthShotDelay,
+			false
+		);
+	}
+
+	return MontageDuration > 0.0f ? MontageDuration : LowHealthShotMontage->GetPlayLength();
+}
+
+float UEnemyWolfCombatComponent::BeginLowHealthShoot()
+{
+	BeginLowHealthShootFacing();
+	return PlayLowHealthShotMontage();
+}
+
+void UEnemyWolfCombatComponent::FinishLowHealthShoot()
+{
+	bIsAttacking = false;
+	bFaceTargetWhileLowHealthShooting = false;
+	if (bLowHealthShotCommitted)
+	{
+		LastLowHealthShotTime = GetWorld() ? GetWorld()->GetTimeSeconds() : LastLowHealthShotTime;
+	}
+	bLowHealthShotCommitted = false;
+	StopLowHealthShotMontage();
+	RestoreMovementAfterAction();
+	EnterState(EWolfAIState::Chasing);
+	if (Blackboard)
+	{
+		Blackboard->SetValueAsBool(ShouldFleeAndShootKeyName, WantsLowHealthFleeAndShoot());
+	}
+
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(LowHealthShotTraceTimer);
+	}
+}
+
+bool UEnemyWolfCombatComponent::IsFacingTargetForLowHealthShot() const
+{
+	if (!OwnerCharacter || !Blackboard)
+	{
+		return false;
+	}
+
+	const AActor* Target = Cast<AActor>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName));
+	if (!Target)
+	{
+		return false;
+	}
+
+	const FVector ToTarget = (Target->GetActorLocation() - OwnerCharacter->GetActorLocation()).GetSafeNormal2D();
+	const FVector Forward = OwnerCharacter->GetActorForwardVector().GetSafeNormal2D();
+	if (ToTarget.IsNearlyZero() || Forward.IsNearlyZero())
+	{
+		return false;
+	}
+
+	const float Dot = FMath::Clamp(FVector::DotProduct(Forward, ToTarget), -1.0f, 1.0f);
+	const float AngleDegrees = FMath::RadiansToDegrees(FMath::Acos(Dot));
+	return AngleDegrees <= LowHealthShotFacingAngleTolerance;
+}
+
 void UEnemyWolfCombatComponent::EnterState(EWolfAIState NewState)
 {
 	if (CurrentState == NewState)
@@ -470,6 +679,12 @@ void UEnemyWolfCombatComponent::EnterState(EWolfAIState NewState)
 		break;
 	case EWolfAIState::Attacking:
 		ApplyWalkSpeed(AttackWalkSpeed);
+		break;
+	case EWolfAIState::Fleeing:
+		ApplyWalkSpeed(LowHealthShotMoveSpeed);
+		break;
+	case EWolfAIState::Shooting:
+		ApplyWalkSpeed(0.0f);
 		break;
 	case EWolfAIState::Chasing:
 		ApplyWalkSpeed(ChaseWalkSpeed);
@@ -584,6 +799,11 @@ void UEnemyWolfCombatComponent::FaceTargetDuringCircle(float DeltaTime)
 	OwnerCharacter->SetActorRotation(NewRotation);
 }
 
+void UEnemyWolfCombatComponent::FaceTargetDuringLowHealthShot(float DeltaTime)
+{
+	FaceTargetDuringCircle(DeltaTime);
+}
+
 void UEnemyWolfCombatComponent::BeginCircleFacingLock()
 {
 	if (!OwnerCharacter)
@@ -638,6 +858,81 @@ void UEnemyWolfCombatComponent::ApplyWalkSpeed(float NewWalkSpeed)
 	if (UCharacterMovementComponent* MovementComponent = OwnerCharacter ? OwnerCharacter->GetCharacterMovement() : nullptr)
 	{
 		MovementComponent->MaxWalkSpeed = NewWalkSpeed;
+	}
+}
+
+void UEnemyWolfCombatComponent::RequestLowHealthShotIfNeeded()
+{
+	if (Blackboard)
+	{
+		if (CurrentState == EWolfAIState::Shooting && bLowHealthShotCommitted)
+		{
+			Blackboard->SetValueAsBool(ShouldFleeAndShootKeyName, true);
+			return;
+		}
+
+		if (CurrentState == EWolfAIState::Fleeing)
+		{
+			Blackboard->SetValueAsBool(ShouldFleeAndShootKeyName, !CanAttackCurrentTarget());
+			return;
+		}
+
+		Blackboard->SetValueAsBool(ShouldFleeAndShootKeyName, WantsLowHealthFleeAndShoot());
+	}
+}
+
+void UEnemyWolfCombatComponent::PerformLowHealthShotTrace()
+{
+	if (!OwnerCharacter || LowHealthShotRange <= 0.0f || LowHealthShotDamage <= 0.0f || IsDead())
+	{
+		return;
+	}
+
+	const FVector Start = OwnerCharacter->GetActorLocation()
+		+ FVector::UpVector * LowHealthShotTraceHeightOffset
+		+ OwnerCharacter->GetActorForwardVector() * LowHealthShotTraceForwardOffset;
+	const FVector End = Start + OwnerCharacter->GetActorForwardVector() * LowHealthShotRange;
+
+	TArray<FHitResult> Hits;
+	FCollisionObjectQueryParams ObjectQueryParams;
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_Pawn);
+
+	FCollisionQueryParams QueryParams(FName(TEXT("EnemyWolfLowHealthShot")), false, OwnerCharacter);
+	if (!GetWorld() || !GetWorld()->LineTraceMultiByObjectType(Hits, Start, End, ObjectQueryParams, QueryParams))
+	{
+		return;
+	}
+
+	for (const FHitResult& Hit : Hits)
+	{
+		AActor* HitActor = Hit.GetActor();
+		if (!HitActor || HitActor == OwnerCharacter)
+		{
+			continue;
+		}
+
+		UPlayerStatsComponent* PlayerStats = HitActor->FindComponentByClass<UPlayerStatsComponent>();
+		if (!PlayerStats || PlayerStats->bIsInvincible)
+		{
+			continue;
+		}
+
+		PlayerStats->TakeDamage(LowHealthShotDamage);
+		return;
+	}
+}
+
+void UEnemyWolfCombatComponent::StopLowHealthShotMontage()
+{
+	if (!OwnerCharacter || !LowHealthShotMontage)
+	{
+		return;
+	}
+
+	UAnimInstance* AnimInstance = OwnerCharacter->GetMesh() ? OwnerCharacter->GetMesh()->GetAnimInstance() : nullptr;
+	if (AnimInstance && AnimInstance->Montage_IsPlaying(LowHealthShotMontage))
+	{
+		AnimInstance->Montage_Stop(LowHealthShotMontageBlendOutTime, LowHealthShotMontage);
 	}
 }
 

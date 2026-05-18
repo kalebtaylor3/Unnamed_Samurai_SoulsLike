@@ -14,7 +14,9 @@ enum class EWolfAIState : uint8
 	Idle,
 	Chasing,
 	Circling,
-	Attacking
+	Attacking,
+	Fleeing,
+	Shooting
 };
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
@@ -65,9 +67,19 @@ public:
 	void HandleOwnerDeath();
 	void ClearWasHitFlag();
 	void ClearShouldCircleFlag();
+	void ClearShouldFleeAndShootFlag();
 	bool IsFacingTargetForCircleWarning() const;
 	float PlayCircleWarningMontage();
 	void StopCircleWarningMontage();
+	bool WantsLowHealthFleeAndShoot() const;
+	bool IsLowHealthShotReady() const;
+	bool CanUseLowHealthShot() const;
+	void BeginLowHealthFlee();
+	void BeginLowHealthShootFacing();
+	float PlayLowHealthShotMontage();
+	float BeginLowHealthShoot();
+	void FinishLowHealthShoot();
+	bool IsFacingTargetForLowHealthShot() const;
 
 	bool IsAttackInProgress() const { return bIsAttacking; }
 	EWolfAIState GetCurrentState() const { return CurrentState; }
@@ -127,6 +139,45 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Leash")
 	float LeashRadius = 4000.0f;
 
+	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Low Health Shot", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float LowHealthShotHealthPercent = 0.35f;
+
+	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Low Health Shot", meta = (ClampMin = "0.0"))
+	float LowHealthShotCooldown = 7.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Low Health Shot", meta = (ClampMin = "0.0"))
+	float LowHealthShotClearDistance = 850.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Low Health Shot", meta = (ClampMin = "0.0"))
+	float LowHealthShotMoveSpeed = 700.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Low Health Shot")
+	UAnimMontage* LowHealthShotMontage = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Low Health Shot", meta = (ClampMin = "0.1"))
+	float LowHealthShotMontagePlayRate = 1.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Low Health Shot", meta = (ClampMin = "0.0"))
+	float LowHealthShotDelay = 0.35f;
+
+	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Low Health Shot", meta = (ClampMin = "0.0"))
+	float LowHealthShotDamage = 25.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Low Health Shot", meta = (ClampMin = "0.0"))
+	float LowHealthShotRange = 1800.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Low Health Shot")
+	float LowHealthShotTraceHeightOffset = 55.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Low Health Shot")
+	float LowHealthShotTraceForwardOffset = 45.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Low Health Shot", meta = (ClampMin = "1.0", ClampMax = "180.0"))
+	float LowHealthShotFacingAngleTolerance = 10.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Wolf Combat|Low Health Shot", meta = (ClampMin = "0.0"))
+	float LowHealthShotMontageBlendOutTime = 0.12f;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
@@ -147,11 +198,15 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Blackboard")
 	FName ShouldCircleKeyName = TEXT("ShouldCircle");
 
+	UPROPERTY(EditAnywhere, Category = "Blackboard")
+	FName ShouldFleeAndShootKeyName = TEXT("ShouldFleeAndShoot");
+
 	UPROPERTY()
 	UBlackboardComponent* Blackboard = nullptr;
 
 	FTimerHandle AttackFinishedTimer;
 	FTimerHandle WasHitResetTimer;
+	FTimerHandle LowHealthShotTraceTimer;
 
 	UPROPERTY()
 	UAnimMontage* ActiveAttackMontage = nullptr;
@@ -172,6 +227,9 @@ private:
 	bool bSavedUseControllerRotationYaw = false;
 	bool bHasSavedCircleRotationSettings = false;
 	bool bFaceTargetWhileCircling = false;
+	bool bFaceTargetWhileLowHealthShooting = false;
+	bool bLowHealthShotCommitted = false;
+	float LastLowHealthShotTime = -1000.0f;
 
 	void EnterState(EWolfAIState NewState);
 	void OnAttackFinished();
@@ -179,9 +237,13 @@ private:
 	bool ShouldCircleAfterAttack(const AActor* Target) const;
 	void RequestCircle();
 	void FaceTargetDuringCircle(float DeltaTime);
+	void FaceTargetDuringLowHealthShot(float DeltaTime);
 	void BeginCircleFacingLock();
 	void EndCircleFacingLock();
 	void RestoreMovementAfterAction();
 	void ApplyWalkSpeed(float NewWalkSpeed);
+	void RequestLowHealthShotIfNeeded();
+	void PerformLowHealthShotTrace();
+	void StopLowHealthShotMontage();
 	bool IsDead() const;
 };
