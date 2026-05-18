@@ -3,6 +3,7 @@
 
 #include "AI/EnemyHealthComponent.h"
 #include "AI/EnemyCombatComponent.h"
+#include "AI/EnemyWolfCombatComponent.h"
 #include "Components/WidgetComponent.h"
 #include "AI/WBP_EnemyHealthBar.h"
 #include "AIController.h"
@@ -55,6 +56,12 @@ void UEnemyHealthComponent::TakeDamage(float DamageAmount)
 	{
 		CombatComponent->HandleOwnerHit(PlayerActor);
 	}
+	else if (UEnemyWolfCombatComponent* WolfCombatComponent = GetOwner()
+		? GetOwner()->FindComponentByClass<UEnemyWolfCombatComponent>()
+		: nullptr)
+	{
+		WolfCombatComponent->HandleOwnerHit(PlayerActor);
+	}
 
 	// === Set WasHit to true on blackboard ===
 	if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))
@@ -101,6 +108,10 @@ void UEnemyHealthComponent::HandleDeath()
 		{
 			CombatComponent->HandleOwnerDeath();
 		}
+		else if (UEnemyWolfCombatComponent* WolfCombatComponent = OwnerActor->FindComponentByClass<UEnemyWolfCombatComponent>())
+		{
+			WolfCombatComponent->HandleOwnerDeath();
+		}
 
 		if (APawn* OwnerPawn = Cast<APawn>(OwnerActor))
 		{
@@ -112,6 +123,7 @@ void UEnemyHealthComponent::HandleDeath()
 				{
 					BB->SetValueAsBool("WasHit", false);
 					BB->SetValueAsBool("ShouldDodge", false);
+					BB->SetValueAsBool("ShouldCircle", false);
 					BB->SetValueAsBool("IsInAttackRange", false);
 					BB->ClearValue("TargetActor");
 				}
