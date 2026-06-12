@@ -1,6 +1,23 @@
+# Unreal generated folders
 Binaries/
 DerivedDataCache/
 Intermediate/
 Saved/
+
+# IDE files
 .vs/
 .vscode/
+
+# Rider
+.idea/
+
+# Visual Studio
+*.VC.db
+*.VC.opendb
+
+# Logs
+*.log
+
+# Optional plugins (if they contain assets you don't want)
+Content/
+Plugins/
